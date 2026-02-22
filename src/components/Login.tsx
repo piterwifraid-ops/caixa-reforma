@@ -137,7 +137,7 @@ const Login: React.FC = () => {
         });
       }
 
-      navigate('/');
+      navigate('/quiz');
     } catch (error) {
       setError('Erro ao validar CPF. Tente novamente.');
     } finally {

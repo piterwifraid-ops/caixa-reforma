@@ -419,7 +419,7 @@ const RodapeAcao = ({ simulacao, dados }) => {
 };
 
 // ─── APP PRINCIPAL ────────────────────────────────────────────────────────────
-export default function PaginaAprovacao({ dadosSolicitacao }) {
+export default function PaginaAprovacao({ dadosSolicitacao = null }) {
   let dados = dadosSolicitacao || DADOS_MOCK;
   // tentar ler dados de aprovação salvos pelo quiz (localStorage)
   if (typeof window !== "undefined") {
