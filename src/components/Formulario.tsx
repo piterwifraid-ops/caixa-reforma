@@ -68,6 +68,14 @@ const mascaraCEP = (v) => {
   return d.length > 5 ? `${d.slice(0,5)}-${d.slice(5)}` : d;
 };
 
+const mascaraTelefone = (v) => {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return `(${d.slice(0,2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+};
+
 // ─── Componentes Base ─────────────────────────────────────────────────────────
 
 const SectionHeader = ({ numero, titulo, descricao }) => (
@@ -104,9 +112,11 @@ const Campo = ({ label, obrigatorio, erro, children, dica, full }) => (
   </div>
 );
 
-const Input = ({ value, onChange, placeholder, disabled, erro, type = "text", maxLength }) => (
+const Input = ({ value, onChange, placeholder, disabled, erro, type = "text", maxLength, inputMode, pattern }) => (
   <input
     type={type}
+    inputMode={inputMode}
+    pattern={pattern}
     value={value}
     onChange={onChange}
     placeholder={placeholder}
@@ -352,7 +362,18 @@ const SecaoDadosComplementares = ({ form, setForm, erros }) => {
           <Input value={form.email} onChange={atualizar("email")} placeholder="seu@email.com.br" type="email" erro={erros.email} />
         </Campo>
         <Campo label="WhatsApp / Telefone" obrigatorio erro={erros.telefone}>
-          <Input value={form.telefone} onChange={atualizar("telefone")} placeholder="(11) 99999-9999" erro={erros.telefone} />
+          <Input
+            value={form.telefone}
+            onChange={e => {
+              const v = mascaraTelefone(e.target.value);
+              setForm(f => ({ ...f, telefone: v }));
+            }}
+            placeholder="(11) 99999-9999"
+            erro={erros.telefone}
+            type="tel"
+            inputMode="tel"
+            maxLength={15}
+          />
         </Campo>
         <Campo label="Tipo de imóvel" obrigatorio erro={erros.tipoImovel} full>
           <Select
@@ -434,6 +455,8 @@ const SecaoEndereco = ({ end, setEnd, erros }) => {
               placeholder="00000-000"
               maxLength={9}
               erro={erroCEP || erros.cep}
+              inputMode="numeric"
+              pattern="\\d*"
             />
           </Campo>
         </div>
@@ -457,7 +480,7 @@ const SecaoEndereco = ({ end, setEnd, erros }) => {
         </Campo>
 
         <Campo label="Número" obrigatorio erro={erros.numero}>
-          <Input value={end.numero} onChange={atualizar("numero")} placeholder="Ex: 123" erro={erros.numero} />
+          <Input value={end.numero} onChange={atualizar("numero")} placeholder="Ex: 123" erro={erros.numero} inputMode="numeric" pattern="\\d*" maxLength={8} />
         </Campo>
         <Campo label="Complemento" erro={erros.complemento}>
           <Input value={end.complemento} onChange={atualizar("complemento")} placeholder="Apto, Bloco, Casa..." />
@@ -669,9 +692,6 @@ export default function FormularioSolicitacao({ respostasQuiz }) {
 
               {/* Botão de envio */}
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                <button style={{ padding: "12px 24px", background: C.branco, color: C.azul, border: `1.5px solid ${C.azul}`, borderRadius: 6, fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
-                  Salvar rascunho
-                </button>
                 <button
                   onClick={enviar}
                   disabled={enviando}

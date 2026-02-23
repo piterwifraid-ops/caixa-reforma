@@ -92,7 +92,10 @@ const Main: React.FC = () => {
             <h2 className="rcb-section-title">O que é</h2>
             <p>O <strong>Programa Reforma Casa Brasil</strong> é um empréstimo para reformar sua casa e melhorar as condições de vida para você e para sua família.</p>
             <p>O objetivo é investir em conforto, segurança, acessibilidade e condições de moradia digna.</p>
-            <div className="rcb-cta-box">Contrate pelo App CAIXA ou em uma agência.<br />As contratações pelo App CAIXA Tem começam dia 17/11/2025.</div>
+            <div className="rcb-cta-box">
+              Finalize sua contratação agora mesmo de forma 100% online.<br />
+              Clique no botão abaixo e libere seu crédito em poucos minutos.
+            </div>
             <div style={{ textAlign: 'center', marginTop: 24 }}>
               <button className="rcb-btn-primary" id="simule" onClick={() => navigate('/login')}>Simule e contrate</button>
             </div>

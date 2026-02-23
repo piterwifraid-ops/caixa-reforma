@@ -154,6 +154,7 @@ const SimuladorParcelas = ({ valor, jurosAm, onConfirmar }) => {
   const [prazo, setPrazo]       = useState(36);
   const [confirmado, setConfirmado] = useState(false);
   const simRef = useRef(null);
+  const navigate = useNavigate();
 
   const parcela    = calcParcela(valor, jurosAm, prazo);
   const totalPago  = parcela * prazo;
@@ -315,7 +316,11 @@ const SimuladorParcelas = ({ valor, jurosAm, onConfirmar }) => {
           {/* Botão de confirmação */}
           {!confirmado ? (
             <button
-              onClick={() => { setConfirmado(true); onConfirmar({ prazo, parcela, totalPago, totalJuros }); }}
+              onClick={() => {
+                setConfirmado(true);
+                onConfirmar({ prazo, parcela, totalPago, totalJuros });
+                navigate('/chat');
+              }}
               style={{
                 width: "100%", padding: "15px", borderRadius: 8, border: "none",
                 background: C.azul, color: C.branco,
@@ -381,40 +386,8 @@ const ResumoSolicitacao = ({ dados }) => (
 
 // ─── Botão de Prosseguir ──────────────────────────────────────────────────────
 const RodapeAcao = ({ simulacao, dados }) => {
-  const [enviando, setEnviando] = useState(false);
-  const navigate = useNavigate();
-  if (!simulacao) return null;
-  return (
-    <div style={{ background: C.branco, border: `1px solid ${C.cinzaBorda}`, borderRadius: 12, padding: "20px 24px", animation: "entrar 0.3s ease" }}>
-      <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <p style={{ fontSize: 13, color: C.cinzaTexto, marginBottom: 4 }}>Você escolheu</p>
-          <p style={{ fontSize: 18, fontWeight: 800, color: C.azulEscuro }}>
-            {simulacao.prazo}x de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(simulacao.parcela)}
-          </p>
-          <p style={{ fontSize: 12, color: C.cinzaTexto }}>Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(simulacao.totalPago)} · Taxa: {(dados.jurosAm * 100).toFixed(2)}% a.m.</p>
-        </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button style={{ padding: "12px 22px", borderRadius: 7, border: `1.5px solid ${C.azul}`, background: C.branco, color: C.azul, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-            Voltar
-          </button>
-          <button
-            onClick={() => { setEnviando(true); navigate('/chat'); }}
-            disabled={enviando}
-            style={{
-              padding: "12px 28px", borderRadius: 7, border: "none",
-              background: enviando ? "#aaa" : C.verde,
-              color: C.branco, fontSize: 15, fontWeight: 700,
-              cursor: enviando ? "not-allowed" : "pointer",
-              boxShadow: enviando ? "none" : `0 3px 12px rgba(22,136,33,0.3)`,
-            }}
-          >
-            {enviando ? "Processando..." : "Prosseguir para contrato"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  // Componente removido: não renderiza o painel de ação inferior conforme solicitado.
+  return null;
 };
 
 // ─── APP PRINCIPAL ────────────────────────────────────────────────────────────

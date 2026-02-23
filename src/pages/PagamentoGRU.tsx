@@ -165,7 +165,7 @@ const PagamentoGRU: React.FC = () => {
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between p-4 md:p-6">
           <div className="flex items-center space-x-4">
-            <img src="/image.png" alt="Governo Federal" className="h-10 md:h-12 w-auto" />
+            <img src="https://i.ibb.co/b53ZGM19/Logo-Governo-Federal-2019-2022-1-removebg-preview.png" alt="Governo Federal" className="h-10 md:h-12 w-auto" />
             <div>
               <h1 className="text-xl md:text-2xl font-semibold text-gray-900" style={{ fontSize: 14 }}>
                 Guia de Recolhimento da União

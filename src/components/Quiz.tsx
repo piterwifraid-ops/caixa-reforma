@@ -26,9 +26,10 @@ const perguntas = [
     titulo: "Onde você mora?",
     descricao: "O programa atende imóveis em área urbana — independente de ser casa própria, alugada ou cedida.",
     tipo: "unica",
-    opcoes: [
+      opcoes: [
       { id: "a", texto: "Moro na cidade (área urbana)", sub: "Casa própria, alugada ou cedida", ok: true },
-      { id: "b", texto: "Moro em área rural", sub: "Zona rural, sítio ou chácara", ok: false, bloqueia: true },
+      // Allow rural selection to continue the funnel normally (user requested)
+      { id: "b", texto: "Moro em área rural", sub: "Zona rural, sítio ou chácara", ok: true },
     ],
   },
   {

