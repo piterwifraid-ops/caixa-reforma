@@ -243,46 +243,104 @@ const PainelContrato = ({ emp, onAssinar }: { emp: ReturnType<typeof makeEmp>; o
 
 const PainelAssinatura = ({ emp, onConfirmar }: { emp: ReturnType<typeof makeEmp>; onConfirmar: (img: string) => void }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingRef = useRef(false);
   const [temTraco, setTemTraco] = useState(false);
 
+  // Ajusta o tamanho do canvas considerando devicePixelRatio para manter nitidez
+  const resizeCanvas = () => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = cv.getBoundingClientRect();
+    cv.width = Math.max(300, Math.floor(rect.width * dpr));
+    cv.height = Math.max(120, Math.floor(rect.height * dpr));
+    const ctx = cv.getContext('2d');
+    if (ctx) {
+      ctx.scale(dpr, dpr);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+    }
+  };
+
+  // Limpa o canvas
   const limpar = () => {
     const cv = canvasRef.current;
     if (!cv) return;
-    cv.getContext("2d")!.clearRect(0, 0, cv.width, cv.height);
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, cv.width, cv.height);
     setTemTraco(false);
   };
 
-  const iniciar = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  useEffect(() => {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    return () => window.removeEventListener('resize', resizeCanvas);
+  }, []);
+
+  // Coordenadas relativas ao canvas (em CSS pixels)
+  const getPos = (e: PointerEvent | React.PointerEvent<HTMLCanvasElement>) => {
+    const cv = canvasRef.current;
+    if (!cv) return { x: 0, y: 0 };
+    const rect = cv.getBoundingClientRect();
+    // Use clientX/clientY for pointer events
+    const clientX = 'clientX' in e ? (e as PointerEvent).clientX : 0;
+    const clientY = 'clientY' in e ? (e as PointerEvent).clientY : 0;
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const cv = canvasRef.current;
     if (!cv) return;
-    const ctx = cv.getContext("2d")!;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    (e.target as Element).setPointerCapture(e.pointerId);
+    drawingRef.current = true;
     ctx.strokeStyle = C.azulEscuro;
-    ctx.lineWidth = 2;
-    const rect = cv.getBoundingClientRect();
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-    cv.onmousemove = (ev: MouseEvent) => {
-      ctx.lineTo((ev as MouseEvent).clientX - rect.left, (ev as MouseEvent).clientY - rect.top);
-      ctx.stroke();
-      setTemTraco(true);
-    };
+    const p = getPos(e.nativeEvent);
+    ctx.moveTo(p.x, p.y);
+    setTemTraco(true);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const cv = canvasRef.current;
+    if (!cv || !drawingRef.current) return;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    const p = getPos(e.nativeEvent);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    drawingRef.current = false;
+    try { (e.target as Element).releasePointerCapture(e.pointerId); } catch {}
+    if (ctx) ctx.closePath();
   };
 
   return (
-    <div style={{ animation: "entrar .35s ease", marginBottom: 14 }}>
+    <div style={{ animation: 'entrar .35s ease', marginBottom: 14 }}>
       <div style={{ background: C.branco, border: `2px solid ${C.azul}`, borderRadius: 12, padding: 16 }}>
         <p style={{ fontSize: 14, fontWeight: 700, color: C.azulEscuro, marginBottom: 8 }}>Assinatura na Tela</p>
-        <p style={{ fontSize: 11, color: C.cinzaLabel, marginBottom: 8 }}>Use o mouse para assinar abaixo — {emp.nome}</p>
-        <canvas
-          ref={canvasRef}
-          onMouseDown={iniciar}
-          onMouseUp={() => { if (canvasRef.current) canvasRef.current.onmousemove = null; }}
-          width={400} height={150}
-          style={{ width: "100%", height: 150, border: `1px dashed ${C.cinzaBorda}`, background: "#fafbff", borderRadius: 8, cursor: "crosshair" }}
-        />
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <p style={{ fontSize: 11, color: C.cinzaLabel, marginBottom: 8 }}>Use o dedo (ou mouse) para assinar abaixo — {emp.nome}</p>
+        <div style={{ width: '100%', height: 150 }}>
+          <canvas
+            ref={canvasRef}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            style={{ width: '100%', height: 150, border: `1px dashed ${C.cinzaBorda}`, background: '#fafbff', borderRadius: 8, touchAction: 'none', cursor: 'crosshair' }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           <button onClick={limpar} style={{ flex: 1, padding: 10, borderRadius: 8, border: `1px solid ${C.cinzaBorda}`, background: C.branco, fontWeight: 600 }}>Limpar</button>
-          <button onClick={() => onConfirmar(canvasRef.current!.toDataURL())} disabled={!temTraco} style={{ flex: 2, padding: 10, background: temTraco ? C.azul : C.cinzaBorda, color: C.branco, border: "none", borderRadius: 8, fontWeight: 700 }}>Confirmar Assinatura</button>
+          <button onClick={() => onConfirmar(canvasRef.current!.toDataURL())} disabled={!temTraco} style={{ flex: 2, padding: 10, background: temTraco ? C.azul : C.cinzaBorda, color: C.branco, border: 'none', borderRadius: 8, fontWeight: 700 }}>Confirmar Assinatura</button>
         </div>
       </div>
     </div>
