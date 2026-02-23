@@ -1,87 +1,135 @@
-import React, { useEffect } from 'react';
+import { useEffect, useRef, useState, ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import Header from './components/Header';
 import Main from './components/Main';
 import Footer from './components/Footer';
-import Inscription from './pages/Inscription';
-import ProgramDetails from './pages/ProgramDetails';
-import Checkout from './pages/Checkout';
-import PixPayment from './pages/PixPayment';
-import PixPaymentUpsell from './pages/PixPaymentUpsell';
-import SuccessPage from './pages/SuccessPage';
-import Upsell1 from './pages/Upsell1';
-import Upsell2 from './pages/Upsell2';
-import Upsell3 from './pages/Upsell3';
-import Upsell4 from './pages/Upsell4';
-import BehavioralQuiz from './pages/BehavioralQuiz';
-import CheckoutUpsell from './pages/CheckoutUpsell';
-import Teste from './pages/Teste';
-import Clinica from './pages/Clinica';
-import ConfirmarAgendamento from './pages/ConfirmarAgendamento';
-import ProtocoloAgendamento from './pages/ProtocoloAgendamento';
-import PagamentoGRU from './pages/PagamentoGRU';
 import Login from './components/Login';
-import LoginCpf from './components/LoginCpf';
+import Quiz from './components/Quiz';
+import Formulario from './pages/Formulario';
+import Aprovacao from './pages/Aprovacao';
+import Chat from './pages/Chat';
+import PagamentoGRU from './pages/PagamentoGRU';
 import { LocationProvider } from './context/LocationContext';
 import { UserProvider } from './context/UserContext';
 
+/* ─── Page transition variants ───────────────────────────────────────────── */
+const pageVariants = {
+  initial: { opacity: 0, y: 16 },
+  in:      { opacity: 1, y: 0 },
+  out:     { opacity: 0, y: -8 },
+};
+
+const pageTransition = {
+  type: 'tween' as const,
+  ease: [0.4, 0, 0.2, 1],
+  duration: 0.28,
+};
+
+function Page({ children }: { children: ReactNode }) {
+  return (
+    <motion.div
+      initial="initial"
+      animate="in"
+      exit="out"
+      variants={pageVariants}
+      transition={pageTransition}
+      style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/* ─── Top progress bar ────────────────────────────────────────────────────── */
+function TopProgressBar() {
+  const location = useLocation();
+  const [visible, setVisible] = useState(false);
+  const [width, setWidth] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setVisible(true);
+    setWidth(0);
+
+    // Quick ramp to 80%, then hold until component re-renders (route done)
+    const ramp = setTimeout(() => setWidth(80), 20);
+    const finish = setTimeout(() => {
+      setWidth(100);
+      timerRef.current = setTimeout(() => setVisible(false), 300);
+    }, 260);
+
+    return () => {
+      clearTimeout(ramp);
+      clearTimeout(finish);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [location.pathname]);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        height: '3px',
+        width: `${width}%`,
+        background: 'linear-gradient(90deg, #1351b4, #0072c6)',
+        zIndex: 9999,
+        transition: width === 100 ? 'width 0.15s ease, opacity 0.3s ease' : 'width 0.24s cubic-bezier(0.4,0,0.2,1)',
+        opacity: width === 100 ? 0 : 1,
+        borderRadius: '0 2px 2px 0',
+        boxShadow: '0 0 8px rgba(19,81,180,0.6)',
+      }}
+    />
+  );
+}
+
+/* ─── Scroll to top on route change ──────────────────────────────────────── */
 function ScrollToTop() {
   const location = useLocation();
-  
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location]);
-
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [location.pathname]);
   return null;
 }
 
+/* ─── Layout ──────────────────────────────────────────────────────────────── */
+function Layout() {
+  const location = useLocation();
+  const hideHeader = location.pathname === '/login';
+
+  return (
+    <div className="min-h-screen bg-[#F9FAFB] flex flex-col">
+      <TopProgressBar />
+      {!hideHeader && <Header />}
+      <AnimatePresence mode="wait" initial={false}>
+        <Routes location={location} key={location.pathname}>
+          <Route path="/"             element={<Page><Main /></Page>} />
+          <Route path="/login"        element={<Page><Login /></Page>} />
+          <Route path="/quiz"         element={<Page><Quiz /></Page>} />
+          <Route path="/formulario"   element={<Page><Formulario /></Page>} />
+          <Route path="/aprovacao"    element={<Page><Aprovacao /></Page>} />
+          <Route path="/chat"         element={<Page><Chat /></Page>} />
+          <Route path="/pagamento-gru" element={<Page><PagamentoGRU /></Page>} />
+          <Route path="*"             element={<Navigate to="/" replace />} />
+        </Routes>
+      </AnimatePresence>
+      <Footer />
+    </div>
+  );
+}
+
+/* ─── App ─────────────────────────────────────────────────────────────────── */
 function App() {
   return (
     <UserProvider>
       <LocationProvider>
         <Router>
           <ScrollToTop />
-          <div className="min-h-screen bg-[#F9FAFB] flex flex-col">
-            <Routes>
-              {/* Rota do Login - sem Header e Footer */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/logincpf" element={<LoginCpf />} />
-              
-              {/* Rotas principais - com Header e Footer */}
-              <Route path="/*" element={
-                <>
-                  <Header />
-                  <Routes>
-                    <Route path="/" element={
-                      <>
-                       
-                        <Main />
-                      </>
-                    } />
-                    <Route path="/inscricao" element={<Inscription />} />
-                    <Route path="/programa" element={<ProgramDetails />} />
-                    <Route path="/checkout" element={<Checkout />} />
-                    <Route path="/checkout-upsell" element={<CheckoutUpsell />} />
-                    <Route path="/pix-payment" element={<PixPayment />} />
-                    <Route path="/pix-payment-upsell" element={<PixPaymentUpsell />} />
-                    <Route path="/sucesso" element={<SuccessPage />} />
-                    <Route path="/upsell1" element={<Upsell1 />} />
-                    <Route path="/upsell2" element={<Upsell2 />} />
-                    <Route path="/upsell3" element={<Upsell3 />} />
-                    <Route path="/upsell4" element={<Upsell4 />} />
-                    <Route path="/quiz" element={<BehavioralQuiz />} />
-                    <Route path="/teste" element={<Teste />} />
-                    <Route path="/clinica" element={<Clinica />} />
-                    <Route path="/confirmar-agendamento" element={<ConfirmarAgendamento />} />
-                    <Route path="/protocolo-agendamento" element={<ProtocoloAgendamento />} />
-                    <Route path="/pagamento-gru" element={<PagamentoGRU />} />
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                  </Routes>
-                  <Footer />
-                </>
-              } />
-            </Routes>
-          </div>
+          <Layout />
         </Router>
       </LocationProvider>
     </UserProvider>

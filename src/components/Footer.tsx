@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
-
-
 import { ChevronDown, Cookie } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { appendUtm } from '../utils/utm';
-import { usePixelTracking } from '../hooks/usePixelTracking';
 import useUtmNavigator from '../hooks/useUtmNavigator';
 
 const Footer: React.FC = () => {
-  usePixelTracking();
   const location = useLocation();
   const navigate = useUtmNavigator();
 
@@ -74,13 +70,13 @@ const Footer: React.FC = () => {
             <ul className="text-sm">
               {/* SOBRE O MINISTÉRIO (sem dropdown) */}
               <li className="py-3">
-                <a 
-                  href="#" 
-                  className="text-sm hover:underline"
-                  {...clickProps}
-                >
-                  SOBRE O MINISTÉRIO
-                </a>
+                  <a
+                    href="#"
+                    className={`text-sm hover:underline ${location.pathname === '/formulario' ? 'text-white' : ''}`}
+                    {...clickProps}
+                  >
+                    SOBRE O MINISTÉRIO
+                  </a>
               </li>
               {/* Dropdown items */}
               {[
@@ -96,7 +92,7 @@ const Footer: React.FC = () => {
                   <div className="flex justify-between items-center">
                     <a
                       href="#"
-                      className="text-sm hover:underline"
+                      className={`text-sm hover:underline ${location.pathname === '/formulario' ? 'text-white' : ''}`}
                       tabIndex={0}
                       onClick={e => {
                         e.preventDefault();
@@ -204,10 +200,10 @@ const Footer: React.FC = () => {
         <div className="container mx-auto px-4">
           <div className="text-xs text-white">
             Todo o conteúdo deste site está publicado sob a licença{' '}
-            <a 
-              rel="license" 
-              href={appendUtm('https://creativecommons.org/licenses/by-nd/3.0/deed.pt_BR')} 
-              className="text-blue-400 hover:text-blue-300"
+            <a
+              rel="license"
+              href={appendUtm('https://creativecommons.org/licenses/by-nd/3.0/deed.pt_BR')}
+              className={location.pathname === '/formulario' ? 'text-white hover:text-white' : 'text-blue-400 hover:text-blue-300'}
               target="_blank"
               rel="noopener noreferrer"
             >

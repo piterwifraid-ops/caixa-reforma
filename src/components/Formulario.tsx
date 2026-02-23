@@ -125,7 +125,7 @@ const Input = ({ value, onChange, placeholder, disabled, erro, type = "text", ma
     style={{
       width: "100%", padding: "10px 12px", borderRadius: 6,
       border: `1.5px solid ${erro ? C.vermelho : disabled ? "#d0d0d0" : C.cinzaBorda}`,
-      fontSize: 14, color: disabled ? "#777" : C.texto,
+      fontSize: 16, color: disabled ? "#777" : C.texto,
       background: disabled ? "#f0f0f0" : erro ? C.vermelhoSub : C.branco,
       boxSizing: "border-box", outline: "none",
       cursor: disabled ? "not-allowed" : "text",
@@ -141,7 +141,7 @@ const Select = ({ value, onChange, options, disabled, erro }) => (
     style={{
       width: "100%", padding: "10px 12px", borderRadius: 6,
       border: `1.5px solid ${erro ? C.vermelho : C.cinzaBorda}`,
-      fontSize: 14, color: value ? C.texto : C.cinzaLabel,
+      fontSize: 16, color: value ? C.texto : C.cinzaLabel,
       background: C.branco, boxSizing: "border-box", outline: "none",
       cursor: disabled ? "not-allowed" : "pointer",
       appearance: "auto",

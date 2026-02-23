@@ -1,4 +1,15 @@
 {
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Permissions-Policy",
+          "value": "autoplay=*, fullscreen=*"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/babylon/:path*",
