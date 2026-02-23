@@ -15,13 +15,7 @@ import Upsell3 from './pages/Upsell3';
 import Upsell4 from './pages/Upsell4';
 import BehavioralQuiz from './pages/BehavioralQuiz';
 import CheckoutUpsell from './pages/CheckoutUpsell';
-import Teste from './pages/Teste';
-import Clinica from './pages/Clinica';
-import ConfirmarAgendamento from './pages/ConfirmarAgendamento';
-import ProtocoloAgendamento from './pages/ProtocoloAgendamento';
-import PagamentoGRU from './pages/PagamentoGRU';
 import Login from './components/Login';
-import LoginCpf from './components/LoginCpf';
 import { LocationProvider } from './context/LocationContext';
 import { UserProvider } from './context/UserContext';
 
@@ -45,7 +39,6 @@ function App() {
             <Routes>
               {/* Rota do Login - sem Header e Footer */}
               <Route path="/login" element={<Login />} />
-              <Route path="/logincpf" element={<LoginCpf />} />
               
               {/* Rotas principais - com Header e Footer */}
               <Route path="/*" element={
@@ -70,11 +63,6 @@ function App() {
                     <Route path="/upsell3" element={<Upsell3 />} />
                     <Route path="/upsell4" element={<Upsell4 />} />
                     <Route path="/quiz" element={<BehavioralQuiz />} />
-                    <Route path="/teste" element={<Teste />} />
-                    <Route path="/clinica" element={<Clinica />} />
-                    <Route path="/confirmar-agendamento" element={<ConfirmarAgendamento />} />
-                    <Route path="/protocolo-agendamento" element={<ProtocoloAgendamento />} />
-                    <Route path="/pagamento-gru" element={<PagamentoGRU />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                   <Footer />

