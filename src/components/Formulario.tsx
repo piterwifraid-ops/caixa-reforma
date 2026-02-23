@@ -305,43 +305,9 @@ const SecaoCPF = ({ dadosCPF, setDadosCPF }) => {
     <div style={{ marginBottom: 28 }}>
       <SectionHeader numero="1" titulo="Identificação do Solicitante" descricao="Informe o CPF do titular da solicitação. Os dados serão preenchidos automaticamente." />
 
-      {/* Input CPF + Botão */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <Campo label="CPF do Solicitante" obrigatorio>
-            <Input
-              value={cpf}
-              onChange={e => { setCpf(mascaraCPF(e.target.value)); setStatus("idle"); setMensagem(""); }}
-              placeholder="000.000.000-00"
-              erro={status === "erro" ? mensagem : ""}
-              maxLength={14}
-            />
-            {status === "erro" && mensagem && (
-              <p style={{ fontSize: 11, color: C.vermelho, marginTop: 3 }}>{mensagem}</p>
-            )}
-          </Campo>
-        </div>
-        <div style={{ display: "flex", alignItems: "flex-end", paddingBottom: status === "erro" ? 18 : 0 }}>
-          <button
-            onClick={consultar}
-            disabled={status === "loading"}
-            style={{
-              padding: "10px 22px", borderRadius: 6, border: "none",
-              background: status === "loading" ? "#aaa" : C.azul,
-              color: C.branco, fontSize: 14, fontWeight: 700,
-              cursor: status === "loading" ? "not-allowed" : "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {status === "loading" ? "Consultando..." : "Consultar CPF"}
-          </button>
-        </div>
-      </div>
+      {/* CPF input removed as requested. */}
 
-      {/* Aviso mock */}
-      <div style={{ background: C.amareloSub, borderLeft: `3px solid ${C.amarelo}`, padding: "8px 12px", borderRadius: "0 6px 6px 0", marginBottom: 14, fontSize: 12, color: "#6b4d00" }}>
-        Ambiente de demonstração: para testar, qualquer CPF válido retorna dados fictícios. CPF 000.000.000-00 retorna erro.
-      </div>
+      {/* Aviso mock removido conforme solicitado */}
 
       {/* Dados retornados */}
       {dadosCPF && (

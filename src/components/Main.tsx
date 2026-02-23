@@ -72,26 +72,31 @@ const Main: React.FC = () => {
       <style>{styles}</style>
       <main style={{ flexGrow: 1, fontFamily: "'Open Sans', sans-serif", color: '#333', fontSize: '15px' }}>
 
-        {/* Breadcrumb */}
-        <div style={{ background: '#fff', borderBottom: '1px solid #ddd', padding: '8px 0' }}>
-          <div className="rcb-container" style={{ padding: '0 20px', fontSize: '12px', color: '#666' }}>
-            <a href="#" style={{ color: '#1351b4', textDecoration: 'none' }}>Início</a>
-            <span style={{ margin: '0 5px' }}></span>
-            <a href="#" style={{ color: '#1351b4', textDecoration: 'none' }}>Habitação</a>
-            <span style={{ margin: '0 5px' }}></span>
-            <strong>Reforma Casa Brasil</strong>
+        {/* Video + O que é (inserido conforme solicitado) */}
+        <div className="rcb-section gray">
+          <div className="rcb-container">
+            <div className="rcb-video-wrap">
+              <iframe
+                src="https://www.youtube-nocookie.com/embed/TBSE1smeMRU?autoplay=1&mute=1&si=rds1FkvnuAKWvQfB"
+                title="Conheça o Programa Reforma Casa Brasil"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
+            </div>
           </div>
         </div>
 
-        {/* Hero */}
-        <div className="rcb-hero">
-          <img
-            src="https://www.gov.br/cidades/pt-br/acesso-a-informacao/acoes-e-programas/habitacao/reforma-casa-brasil/programa-reforma-casa-brasil/@@govbr.institucional.banner/c8f173dd-f063-4bcc-bc81-b57e11c29106/@@images/d1015c0e-b264-41d3-9a5c-4a14c9ed0ee5.png"
-            alt="Banner do Programa Reforma Casa Brasil"
-            style={{ maxWidth: '648px', width: '100%', borderRadius: '8px', marginBottom: '20px', display: 'block', margin: '0 auto 20px' }}
-          />
-          <p>Financiamento com recursos do Fundo Social para reforma e melhoria da sua casa em área urbana</p>
-          <button onClick={() => navigate('/login')} className="rcb-btn-primary">Simule e Contrate</button>
+        <div className="rcb-section rcb-o-que-e" id="o-que-e">
+          <div className="rcb-container">
+            <h2 className="rcb-section-title">O que é</h2>
+            <p>O <strong>Programa Reforma Casa Brasil</strong> é um empréstimo para reformar sua casa e melhorar as condições de vida para você e para sua família.</p>
+            <p>O objetivo é investir em conforto, segurança, acessibilidade e condições de moradia digna.</p>
+            <div className="rcb-cta-box">Contrate pelo App CAIXA ou em uma agência.<br />As contratações pelo App CAIXA Tem começam dia 17/11/2025.</div>
+            <div style={{ textAlign: 'center', marginTop: 24 }}>
+              <button className="rcb-btn-primary" id="simule" onClick={() => navigate('/login')}>Simule e contrate</button>
+            </div>
+          </div>
         </div>
 
         {/* Steps */}
@@ -122,37 +127,20 @@ const Main: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Video */}
-        <div className="rcb-section gray">
-          <div className="rcb-container">
-            <div className="rcb-video-wrap">
-              <iframe
-                src="https://www.youtube-nocookie.com/embed/TBSE1smeMRU?si=rds1FkvnuAKWvQfB"
-                title="YouTube video player"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allowFullScreen
+            {/* Novo hero solicitado (inserido abaixo dos passos) */}
+            <div className="rcb-hero">
+              <img
+                src="https://www.gov.br/cidades/pt-br/acesso-a-informacao/acoes-e-programas/habitacao/reforma-casa-brasil/programa-reforma-casa-brasil/@@govbr.institucional.banner/c8f173dd-f063-4bcc-bc81-b57e11c29106/@@images/d1015c0e-b264-41d3-9a5c-4a14c9ed0ee5.png"
+                alt="Banner do Programa Reforma Casa Brasil"
+                style={{ maxWidth: '648px', width: '100%', borderRadius: '8px', margin: '0px auto 20px', display: 'block' }}
               />
+              <p>Financiamento com recursos do Fundo Social para reforma e melhoria da sua casa em área urbana</p>
+              <button className="rcb-btn-primary" id="5494b7c6-21f0-837e-ee81-a554b4560192" onClick={() => navigate('/login')}>Simule e Contrate</button>
             </div>
-          </div>
-        </div>
 
-        {/* O que é */}
-        <div className="rcb-section rcb-o-que-e" id="o-que-e">
-          <div className="rcb-container">
-            <h2 className="rcb-section-title">O que é</h2>
-            <p>O <strong>Programa Reforma Casa Brasil</strong> é um empréstimo para reformar sua casa e melhorar as condições de vida para você e para sua família.</p>
-            <p>O objetivo é investir em conforto, segurança, acessibilidade e condições de moradia digna.</p>
-            <div className="rcb-cta-box">
-              Contrate pelo App CAIXA ou em uma agência.<br />
-              As contratações pelo App CAIXA Tem começam dia 17/11/2025.
-            </div>
-            <div style={{ textAlign: 'center', marginTop: '24px' }}>
-              <button onClick={() => navigate('/login')} className="rcb-btn-primary" id="simule">Simule e contrate</button>
-            </div>
-          </div>
-        </div>
+            {/* Seção de vídeo removida */}
+
+        {/* Seção 'O que é' removida */}
 
         {/* Quem pode participar */}
         <div className="rcb-section gray">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 // ─── Paleta Gov.br ────────────────────────────────────────────────────────────
@@ -228,6 +228,17 @@ const Bloqueio = ({ motivo, onReiniciar }: BloqueioProps) => (
 // ─── APP PRINCIPAL ────────────────────────────────────────────────────────────
 export default function Quiz() {
   const navigate = useNavigate();
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Scroll to quiz container immediately when component mounts
+    rootRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
+    // Fix page scroll so the quiz remains in view
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    // Restore on unmount
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, []);
   const [etapa, setEtapa] = useState("quiz");   // quiz | bloqueio
   const [perguntaAtual, setPerguntaAtual] = useState(0);
   const [selecionada, setSelecionada] = useState<string | null>(null);

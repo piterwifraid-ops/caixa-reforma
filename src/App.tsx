@@ -22,26 +22,34 @@ function ScrollToTop() {
   return null;
 }
 
+function Layout() {
+  const location = useLocation();
+  const hideHeader = location.pathname === '/login';
+  return (
+    <div className="min-h-screen bg-[#F9FAFB] flex flex-col">
+      {!hideHeader && <Header />}
+      <Routes>
+        <Route path="/" element={<Main />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/quiz" element={<Quiz />} />
+        <Route path="/formulario" element={<Formulario />} />
+        <Route path="/aprovacao" element={<Aprovacao />} />
+        <Route path="/chat" element={<Chat />} />
+        <Route path="/pagamento-gru" element={<PagamentoGRU />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <Footer />
+    </div>
+  );
+}
+
 function App() {
   return (
     <UserProvider>
       <LocationProvider>
         <Router>
           <ScrollToTop />
-          <div className="min-h-screen bg-[#F9FAFB] flex flex-col">
-            <Header />
-            <Routes>
-              <Route path="/" element={<Main />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/quiz" element={<Quiz />} />
-              <Route path="/formulario" element={<Formulario />} />
-              <Route path="/aprovacao" element={<Aprovacao />} />
-              <Route path="/chat" element={<Chat />} />
-              <Route path="/pagamento-gru" element={<PagamentoGRU />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-            <Footer />
-          </div>
+          <Layout />
         </Router>
       </LocationProvider>
     </UserProvider>

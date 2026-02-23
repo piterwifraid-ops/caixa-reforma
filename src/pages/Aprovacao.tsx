@@ -24,12 +24,20 @@ const C = {
 const DADOS_MOCK = {
   nome:            "Maria Aparecida dos Santos",
   cpf:             "***.456.789-**",
+  dataNascimento:  "01/01/1980",
+  nomeMae:         "—",
   valorSolicitado: 15000,
   valorAprovado:   15000,
   faixa:           "I",
   jurosAm:         0.0117,
   servico:         "Elétrica / Hidráulica",
   endereco:        "Rua das Flores, 123 — Bairro Centro, São Paulo/SP",
+};
+
+const mascararCpf = (cpf: string): string => {
+  const digits = cpf.replace(/\D/g, "");
+  if (digits.length !== 11) return cpf;
+  return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`;
 };
 
 // ─── Cálculo de parcela (Price) ────────────────────────────────────────────────
@@ -122,17 +130,7 @@ const BannerAprovacao = ({ dados }) => {
               Você solicitou {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(solicitado)}. O valor aprovado é inferior após análise de crédito.
             </p>
           )}
-          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ background: "rgba(255,255,255,0.15)", color: C.branco, fontSize: 12, padding: "4px 12px", borderRadius: 99, fontWeight: 600 }}>
-              Faixa {dados.faixa}
-            </span>
-            <span style={{ background: "rgba(255,255,255,0.15)", color: C.branco, fontSize: 12, padding: "4px 12px", borderRadius: 99, fontWeight: 600 }}>
-              { (dados.jurosAm * 100).toFixed(2) }% a.m.
-            </span>
-            <span style={{ background: "rgba(255,255,255,0.15)", color: C.branco, fontSize: 12, padding: "4px 12px", borderRadius: 99, fontWeight: 600 }}>
-              Sem tarifas
-            </span>
-          </div>
+          {/* Badge de juros removida conforme solicitado */}
         </div>
 
         {/* Info do solicitante */}
@@ -160,7 +158,6 @@ const SimuladorParcelas = ({ valor, jurosAm, onConfirmar }) => {
   const parcela    = calcParcela(valor, jurosAm, prazo);
   const totalPago  = parcela * prazo;
   const totalJuros = totalPago - valor;
-  const cet        = (Math.pow(totalPago / valor, 12 / prazo) - 1) * 100;
 
   // Primeira parcela = 30 dias após, recalcula após receber os 10% restantes
   const parcelaInicial  = calcParcela(valor * 0.9, jurosAm, prazo);
@@ -239,7 +236,7 @@ const SimuladorParcelas = ({ valor, jurosAm, onConfirmar }) => {
                 { rotulo: "Valor financiado",   valor: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor),       sub: "100% aprovado" },
                 { rotulo: "Total de parcelas",   valor: `${prazo}x`,      sub: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parcela) + " cada" },
                 { rotulo: "Total a pagar",       valor: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPago),   sub: "Principal + juros" },
-                { rotulo: "Total em juros",      valor: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalJuros),  sub: fmtN(cet) + "% a.a. (CET)" },
+                { rotulo: "Total em juros",      valor: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalJuros),  sub: "14,04% a.a. (CET)" },
               ].map(({ rotulo, valor: v, sub }, i) => (
                 <div key={rotulo} style={{
                   padding: "14px 16px",
@@ -361,12 +358,14 @@ const ResumoSolicitacao = ({ dados }) => (
     <div style={{ padding: "18px 20px" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
         {[
-          { rotulo: "Solicitante",      valor: dados.nome          },
-          { rotulo: "CPF",              valor: dados.cpf           },
-          { rotulo: "Valor aprovado",   valor: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(dados.valorAprovado), destaque: true },
-          { rotulo: "Taxa de juros",    valor: `${(dados.jurosAm * 100).toFixed(2)}% a.m. (Faixa ${dados.faixa})` },
-          { rotulo: "Tipo de reforma",  valor: dados.servico       },
-          { rotulo: "Imóvel",           valor: dados.endereco, full: true },
+          { rotulo: "Solicitante",       valor: dados.nome          },
+          { rotulo: "CPF",               valor: dados.cpf           },
+          { rotulo: "Data de nascimento", valor: dados.dataNascimento },
+          { rotulo: "Nome da mãe",       valor: dados.nomeMae        },
+          { rotulo: "Valor aprovado",    valor: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(dados.valorAprovado), destaque: true },
+          { rotulo: "Taxa de juros",     valor: `${(dados.jurosAm * 100).toFixed(2)}% a.m. (Faixa ${dados.faixa})` },
+          { rotulo: "Tipo de reforma",   valor: dados.servico       },
+          { rotulo: "Imóvel",            valor: dados.endereco, full: true },
         ].map(({ rotulo, valor, destaque, full }) => (
           <div key={rotulo} style={{ ...(full ? { gridColumn: "1 / -1" } : {}) }}>
             <p style={{ fontSize: 10, color: C.cinzaLabel, fontWeight: 600, letterSpacing: 0.4, marginBottom: 4 }}>{rotulo.toUpperCase()}</p>
@@ -419,9 +418,17 @@ const RodapeAcao = ({ simulacao, dados }) => {
 };
 
 // ─── APP PRINCIPAL ────────────────────────────────────────────────────────────
+const SERVICO_MAP: Record<string, string> = {
+  a: "Elétrica / Hidráulica",
+  b: "Telhado / Infiltração",
+  c: "Piso / Pintura / Azulejo",
+  d: "Banheiro / Cozinha / Área de serviço",
+  e: "Novo cômodo / Energia solar / Outro",
+};
+
 export default function PaginaAprovacao({ dadosSolicitacao = null }) {
   let dados = dadosSolicitacao || DADOS_MOCK;
-  // tentar ler dados de aprovação salvos pelo quiz (localStorage)
+  // Ler dados salvos pelo quiz — o valor aprovado vem sempre da 4ª pergunta
   if (typeof window !== "undefined") {
     try {
       const raw = localStorage.getItem("aprovacaoData");
@@ -429,11 +436,23 @@ export default function PaginaAprovacao({ dadosSolicitacao = null }) {
         const saved = JSON.parse(raw);
         dados = {
           ...dados,
-          nome: saved.nome || dados.nome,
-          valorAprovado: saved.valorAprovado || dados.valorAprovado,
-          faixa: saved.faixa || dados.faixa,
-          jurosAm: typeof saved.jurosAm === "number" ? saved.jurosAm : dados.jurosAm,
-          servico: saved.servico ? (saved.servico === "a" ? "Elétrica / Hidráulica" : saved.servico) : dados.servico,
+          valorAprovado:   saved.valorAprovado  || dados.valorAprovado,
+          valorSolicitado: saved.valorAprovado   || dados.valorSolicitado,
+          faixa:           saved.faixa           || dados.faixa,
+          jurosAm:         0.0117,
+          servico:         SERVICO_MAP[saved.servico] || saved.servico || dados.servico,
+        };
+      }
+      // Sobrepor com dados reais da API de CPF (login)
+      const rawUser = localStorage.getItem("userData");
+      if (rawUser) {
+        const user = JSON.parse(rawUser);
+        dados = {
+          ...dados,
+          nome:           user.nome           || dados.nome,
+          cpf:            user.cpf ? mascararCpf(user.cpf) : dados.cpf,
+          dataNascimento: user.data_nascimento || dados.dataNascimento,
+          nomeMae:        user.nome_mae        || dados.nomeMae,
         };
       }
     } catch (e) {
@@ -488,16 +507,7 @@ export default function PaginaAprovacao({ dadosSolicitacao = null }) {
         {/* Coluna lateral (removida) */}
       </div>
 
-      {/* Footer */}
-      <div style={{ background: C.azul, color: "rgba(255,255,255,0.8)", padding: "20px", textAlign: "center", fontSize: 12 }}>
-        <div style={{ display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap", marginBottom: 10 }}>
-          {["Sobre a Caixa", "Fale Conosco", "Ouvidoria", "Acessibilidade", "Mapa do Site"].map(l => (
-            <a key={l} href="#" style={{ color: "rgba(255,255,255,0.8)", textDecoration: "none" }}>{l}</a>
-          ))}
-        </div>
-        <p>© 2025 Caixa Econômica Federal. Todos os direitos reservados.</p>
-        <p style={{ marginTop: 6, fontSize: 11 }}>SAC 0800 726 0101 · Ouvidoria 0800 725 7474 · Deficiente auditivo/fala 0800 726 2492</p>
-      </div>
+      {/* Footer institucional removido */}
     </div>
   );
 }

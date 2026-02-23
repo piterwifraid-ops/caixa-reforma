@@ -1,38 +1,30 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import atendneteSrc from "../assets/atendnete.png";
 import { useNavigate } from "react-router-dom";
 
-// ─── Paleta Gov.br ─────────────────────────────────────────────────────────────
+// --- Paleta Gov.br ---------------------------------------------------------
 const C = {
-  azul:        "#1351b4",
-  azulEscuro:  "#003D82",
-  azulClaro:   "#d4e3ff",
-  azulFundo:   "#edf2fb",
-  amarelo:     "#F5A623",
-  amareloSub:  "#fff8e8",
-  verde:       "#168821",
-  verdeClaro:  "#e3f5e1",
-  verdeBorda:  "#9dd69f",
-  cinzaFundo:  "#f4f5f7",
-  cinzaBorda:  "#dee2e6",
-  cinzaTexto:  "#555",
-  cinzaLabel:  "#888",
-  branco:      "#ffffff",
-  texto:       "#1c1c1e",
-  bolhaAgente: "#ffffff",
-  bolhaUser:   "#1351b4",
-  vermelho:       "#e52207",
-  vermelhoClaro:  "#fde8e6",
-  amareloClaro:   "#fff3cd",
+  azul: "#1351b4",
+  azulEscuro: "#003D82",
+  azulClaro: "#d4e3ff",
+  azulFundo: "#edf2fb",
+  amarelo: "#F5A623",
+  amareloSub: "#fff8e8",
+  verde: "#168821",
+  verdeClaro: "#e3f5e1",
+  verdeBorda: "#9dd69f",
+  cinzaFundo: "#f4f5f7",
+  cinzaBorda: "#dee2e6",
+  cinzaTexto: "#555",
+  cinzaLabel: "#888",
+  branco: "#ffffff",
+  texto: "#1c1c1e",
+  vermelho: "#d32727",
+  vermelhoSub: "#fff5f5",
 };
 
-// ─── Agente ───────────────────────────────────────────────────────────────────
-const AGENTE = {
-  nome:  "Agente CAIXA",
-  cargo: "Analista de Habitação",
-  id:    "AGT-4821",
-};
+const AGENTE = { nome: "Ana Lima", cargo: "Consultora de Habitação · CAIXA", id: "AGT-4821" };
 
-// ─── Tipos de cômodo ──────────────────────────────────────────────────────────
 const COMODOS = [
   "Sala de estar",
   "Quarto",
@@ -56,946 +48,473 @@ const TIPOS_REFORMA = [
   "Outro tipo",
 ];
 
-// ─── Fluxo de conversa ────────────────────────────────────────────────────────
-const FLUXO = [
-  {
-    id:      "boas_vindas",
-    tipo:    "agente",
-    delay:   600,
-    texto:   (dados) =>
-      `Olá, ${dados.nomeUsuario || "boa tarde"}! Sou ${AGENTE.nome}, analista de habitação responsável pelo acompanhamento da sua solicitação do programa Reforma Casa Brasil.\n\nSua solicitação de empréstimo foi aprovada. Para prosseguirmos com a liberação do crédito, preciso que você envie as fotos do imóvel antes do início da obra.`,
-  },
-  {
-    id:      "orientacao",
-    tipo:    "agente",
-    delay:   1200,
-    texto:   () =>
-      `Essas fotos são obrigatórias e comprovam o estado atual do imóvel. Elas serão comparadas com as fotos do "depois", que você enviará ao finalizar a reforma.\n\nVamos começar? Qual cômodo ou área você vai reformar primeiro?`,
-    acao:    "selecionar_comodo",
-  },
-];
-
-// ─── Formatar hora ───────────────────────────────────────────────────────────
+const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const hora = () => {
   const d = new Date();
-  return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
 
-// ─── Avatar do agente ─────────────────────────────────────────────────────────
-const AvatarAgente = ({ tamanho = 36 }) => (
-  <div style={{
-    width: tamanho, height: tamanho, borderRadius: "50%", flexShrink: 0,
-    background: `linear-gradient(135deg, ${C.azulEscuro}, ${C.azul})`,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    boxShadow: "0 2px 8px rgba(19,81,180,0.3)",
-  }}>
-    <svg width={tamanho * 0.55} height={tamanho * 0.55} viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="8" r="4" fill="white" opacity="0.9" />
-      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.9" />
-    </svg>
-  </div>
+// --- Construção do objeto de empréstimo a partir do localStorage ----------------
+const makeEmp = (nome: string) => {
+  const raw = typeof window !== "undefined" ? localStorage.getItem("aprovacaoData") : null;
+  const saved = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+  const valor = typeof saved["valorAprovado"] === "number" ? (saved["valorAprovado"] as number) : 15000;
+  const parcelas = typeof saved["parcelas"] === "number" ? (saved["parcelas"] as number) : 36;
+  const parcela = parcelas ? Math.round(valor / parcelas) : Math.round(valor / 36);
+  const cpf = typeof saved["cpf"] === "string" ? (saved["cpf"] as string) : "000.000.000-00";
+  const protocolo = typeof saved["protocolo"] === "string" ? (saved["protocolo"] as string) : `PRT-${Date.now()}`;
+  return { nome, cpf, valor, parcelas, parcela, protocolo };
+};
+
+// --- Componentes auxiliares -------------------------------------------------
+const Avatar = ({ usuario }: { usuario?: boolean }) => (
+  <div style={{ width: 36, height: 36, borderRadius: 8, background: usuario ? C.azul : C.azulClaro }} />
 );
 
-// ─── Bolha do agente ──────────────────────────────────────────────────────────
-const BolhaAgente = ({ texto, horario, animando }) => (
-  <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 16, animation: "entrar 0.3s ease" }}>
-    <AvatarAgente />
-    <div style={{ maxWidth: "75%", minWidth: 60 }}>
-      <p style={{ fontSize: 10, color: C.cinzaLabel, marginBottom: 4, fontWeight: 600 }}>
-        {AGENTE.nome} · {horario}
-      </p>
-      <div style={{
-        background: C.bolhaAgente, border: `1px solid ${C.cinzaBorda}`,
-        borderRadius: "0 12px 12px 12px", padding: "12px 14px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.07)",
-      }}>
+const BolhaAgente = ({ texto, horario, animando }: { texto?: string; horario?: string; animando?: boolean }) => (
+  <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 14, animation: "entrar .3s ease" }}>
+    {/* Avatar da Ana Lima: somente para mensagens do bot */}
+    <img
+      src={atendneteSrc}
+      alt={AGENTE.nome}
+      style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+    />
+    <div style={{ flex: 1 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 12, color: C.cinzaLabel, fontWeight: 700 }}>{AGENTE.nome}</span>
+        <span style={{ fontSize: 10, color: C.cinzaLabel }}>{horario}</span>
+      </div>
+      <div style={{ background: C.azulClaro, borderRadius: "0 12px 12px 12px", padding: "10px 12px" }}>
         {animando ? (
-          <div style={{ display: "flex", gap: 4, alignItems: "center", padding: "4px 2px" }}>
-            {[0, 1, 2].map(i => (
-              <div key={i} style={{
-                width: 7, height: 7, borderRadius: "50%", background: C.cinzaBorda,
-                animation: `piscar 1.2s ${i * 0.2}s ease-in-out infinite`,
-              }} />
-            ))}
+          <div style={{ display: "flex", gap: 5, padding: "4px 2px" }}>
+            {[0, 1, 2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: C.cinzaBorda, animation: `piscar 1.2s ${i * 0.2}s ease-in-out infinite` }} />)}
           </div>
         ) : (
-          <p style={{ fontSize: 14, color: C.texto, lineHeight: 1.6, whiteSpace: "pre-line" }}>{texto}</p>
+          <p style={{ fontSize: 14, color: C.texto, lineHeight: 1.65, whiteSpace: "pre-line", margin: 0 }}>{texto}</p>
         )}
       </div>
     </div>
   </div>
 );
 
-// ─── Bolha do usuário ─────────────────────────────────────────────────────────
-const BolhaUsuario = ({ texto, horario }) => (
-  <div style={{ display: "flex", gap: 10, alignItems: "flex-end", justifyContent: "flex-end", marginBottom: 16, animation: "entrar 0.3s ease" }}>
-    <div style={{ maxWidth: "70%" }}>
-      <p style={{ fontSize: 10, color: C.cinzaLabel, marginBottom: 4, textAlign: "right", fontWeight: 600 }}>
-        Você · {horario}
-      </p>
-      <div style={{
-        background: C.bolhaUser, borderRadius: "12px 12px 0 12px",
-        padding: "12px 14px", boxShadow: "0 1px 6px rgba(19,81,180,0.2)",
-      }}>
+const BolhaUser = ({ texto, horario }: { texto: string; horario: string }) => (
+  <div style={{ display: "flex", gap: 10, alignItems: "flex-end", justifyContent: "flex-end", marginBottom: 14, animation: "entrar .3s ease" }}>
+    <div style={{ maxWidth: "72%" }}>
+      <p style={{ fontSize: 10, color: C.cinzaLabel, marginBottom: 4, textAlign: "right", fontWeight: 600 }}>Você · {horario}</p>
+      <div style={{ background: C.azul, borderRadius: "12px 12px 0 12px", padding: "11px 14px" }}>
         <p style={{ fontSize: 14, color: C.branco, lineHeight: 1.6 }}>{texto}</p>
       </div>
     </div>
-    <div style={{
-      width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-      background: "#e0e0e0", display: "flex", alignItems: "center", justifyContent: "center",
-    }}>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="8" r="4" fill={C.cinzaTexto} />
-        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={C.cinzaTexto} strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    </div>
+    <Avatar usuario />
   </div>
 );
 
-// ─── Card de foto enviada ─────────────────────────────────────────────────────
-const CardFoto = ({ foto, onRemover }) => (
-  <div style={{
-    position: "relative", borderRadius: 8, overflow: "hidden",
-    border: `2px solid ${C.verde}`, boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-    width: 90, height: 90, flexShrink: 0,
-  }}>
-    <img src={foto.preview} alt={foto.nome} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-    <div style={{
-      position: "absolute", bottom: 0, left: 0, right: 0,
-      background: "rgba(0,0,0,0.55)", padding: "3px 5px",
-    }}>
-      <p style={{ fontSize: 9, color: C.branco, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{foto.nome}</p>
-    </div>
-    {onRemover && (
-      <button onClick={onRemover} style={{
-        position: "absolute", top: 3, right: 3, width: 18, height: 18, borderRadius: "50%",
-        background: "rgba(229,34,7,0.9)", border: "none", cursor: "pointer",
-        display: "flex", alignItems: "center", justifyContent: "center", color: C.branco, fontSize: 11, fontWeight: 700,
-      }}>×</button>
-    )}
-  </div>
-);
-
-// ─── Bolha de fotos enviadas ──────────────────────────────────────────────────
-const BolhaFotos = ({ fotos, comodo, horario }) => (
-  <div style={{ display: "flex", gap: 10, alignItems: "flex-end", justifyContent: "flex-end", marginBottom: 16, animation: "entrar 0.3s ease" }}>
-    <div style={{ maxWidth: "80%" }}>
-      <p style={{ fontSize: 10, color: C.cinzaLabel, marginBottom: 4, textAlign: "right", fontWeight: 600 }}>
-        Você · {horario}
-      </p>
-      <div style={{
-        background: C.bolhaUser, borderRadius: "12px 12px 0 12px",
-        padding: "12px 14px",
-      }}>
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", marginBottom: 8 }}>
+const BolhaFotos = ({ fotos, comodo, horario }: { fotos: { preview: string }[]; comodo: string; horario: string }) => (
+  <div style={{ display: "flex", gap: 10, alignItems: "flex-end", justifyContent: "flex-end", marginBottom: 14, animation: "entrar .3s ease" }}>
+    <div style={{ maxWidth: "82%" }}>
+      <p style={{ fontSize: 10, color: C.cinzaLabel, marginBottom: 4, textAlign: "right", fontWeight: 600 }}>Você · {horario}</p>
+      <div style={{ background: C.azul, borderRadius: "12px 12px 0 12px", padding: "12px 14px" }}>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", marginBottom: 8 }}>
           {fotos.length} foto{fotos.length > 1 ? "s" : ""} — {comodo}
         </p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
           {fotos.map((f, i) => (
-            <div key={i} style={{ position: "relative", width: 72, height: 72, borderRadius: 6, overflow: "hidden" }}>
-              <img src={f.preview} alt={f.nome} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <div key={i} style={{ width: 65, height: 65, borderRadius: 6, overflow: "hidden" }}>
+              <img src={f.preview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
           ))}
         </div>
       </div>
     </div>
-    <div style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0, background: "#e0e0e0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="8" r="4" fill={C.cinzaTexto} />
-        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={C.cinzaTexto} strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
+    <Avatar usuario />
+  </div>
+);
+
+// --- UI Helpers ------------------------------------------------------------
+const Chips = ({ opcoes, onSelect, titulo }: { opcoes: string[]; onSelect: (op: string) => void; titulo?: string }) => (
+  <div style={{ animation: "entrar .3s ease", marginBottom: 14 }}>
+    {titulo && <p style={{ fontSize: 12, color: C.cinzaTexto, marginBottom: 8, fontWeight: 600 }}>{titulo}</p>}
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      {opcoes.map(op => (
+        <button key={op} onClick={() => onSelect(op)} style={{
+          padding: "8px 16px", borderRadius: 20, fontSize: 13, cursor: "pointer",
+          border: `1.5px solid ${C.cinzaBorda}`, background: C.branco,
+          color: C.cinzaTexto, fontWeight: 500, transition: "all .15s",
+        }}>
+          {op}
+        </button>
+      ))}
     </div>
   </div>
 );
 
-// ─── Seletor de opções ────────────────────────────────────────────────────────
-const SeletorOpcoes = ({ opcoes, onSelecionar, multiplo = false, titulo }) => {
-  const [selecionados, setSelecionados] = useState([]);
+const UploadFotos = ({ comodo, tipo, onEnviar, onCancelar }: { comodo: string; tipo: string; onEnviar: (fotos: { preview: string; nome: string }[]) => void; onCancelar: () => void }) => {
+  const [fotos, setFotos] = useState<{ preview: string; nome: string }[]>([]);
+  const [drag, setDrag] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
 
-  const toggleOpcao = (op) => {
-    if (!multiplo) { onSelecionar([op]); return; }
-    setSelecionados(prev =>
-      prev.includes(op) ? prev.filter(x => x !== op) : [...prev, op]
-    );
-  };
-
-  return (
-    <div style={{ animation: "entrar 0.3s ease", marginBottom: 16 }}>
-      {titulo && <p style={{ fontSize: 12, color: C.cinzaTexto, marginBottom: 8, fontWeight: 600 }}>{titulo}</p>}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: multiplo && selecionados.length > 0 ? 10 : 0 }}>
-        {opcoes.map(op => (
-          <button
-            key={op}
-            onClick={() => toggleOpcao(op)}
-            style={{
-              padding: "8px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer",
-              border: `1.5px solid ${selecionados.includes(op) ? C.azul : C.cinzaBorda}`,
-              background: selecionados.includes(op) ? C.azulClaro : C.branco,
-              color: selecionados.includes(op) ? C.azulEscuro : C.cinzaTexto,
-              fontWeight: selecionados.includes(op) ? 700 : 400,
-              transition: "all 0.15s ease",
-            }}
-          >
-            {op}
-          </button>
-        ))}
-      </div>
-      {multiplo && selecionados.length > 0 && (
-        <button
-          onClick={() => onSelecionar(selecionados)}
-          style={{
-            padding: "9px 20px", borderRadius: 8, background: C.azul,
-            color: C.branco, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
-          }}
-        >
-          Confirmar seleção ({selecionados.length})
-        </button>
-      )}
-    </div>
-  );
-};
-
-// ─── Zona de upload de fotos ──────────────────────────────────────────────────
-const ZonaUpload = ({ comodo, tipoReforma, onEnviar, onCancelar }) => {
-  const [fotos, setFotos]       = useState([]);
-  const [dragOver, setDragOver] = useState(false);
-  const inputRef                = useRef(null);
-
-  const processarArquivos = (arquivos) => {
-    const novos = Array.from(arquivos)
+  const add = (files: FileList | null) => {
+    if (!files) return;
+    const novos = Array.from(files)
       .filter(f => f.type.startsWith("image/"))
-      .map(f => ({ arquivo: f, nome: f.name, preview: URL.createObjectURL(f) }));
-    setFotos(prev => [...prev, ...novos].slice(0, 10));
+      .map(f => ({ nome: f.name, preview: URL.createObjectURL(f) }));
+    // manter apenas a primeira foto (apenas 1 foto é necessária)
+    setFotos(p => [...p, ...novos].slice(0, 1));
   };
 
-  const remover = (i) => setFotos(prev => prev.filter((_, idx) => idx !== i));
-
   return (
-    <div style={{ animation: "entrar 0.3s ease", marginBottom: 16 }}>
-      {/* Info do cômodo */}
-      <div style={{ background: C.amareloSub, border: `1px solid ${C.amarelo}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: 13 }}>
-        <p style={{ fontWeight: 700, color: "#5a3e00", marginBottom: 2 }}>Enviando fotos de:</p>
-        <p style={{ color: "#3d2a00" }}>{comodo} — <span style={{ color: C.cinzaTexto }}>{tipoReforma}</span></p>
+    <div style={{ animation: "entrar .3s ease", marginBottom: 14 }}>
+      <div style={{ background: C.amareloSub, border: `1px solid ${C.amarelo}`, borderRadius: 8, padding: "10px 14px", marginBottom: 10 }}>
+        <p style={{ fontWeight: 700, color: "#5a3e00", fontSize: 13, marginBottom: 1 }}>Fotos de: <span style={{ color: C.azulEscuro }}>{comodo}</span></p>
+        <p style={{ fontSize: 12, color: "#7a5500" }}>{tipo}</p>
       </div>
-
-      {/* Instrucoes */}
-      <div style={{ background: C.azulFundo, border: `1px solid ${C.azulClaro}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
-        <p style={{ fontSize: 12, color: C.azulEscuro, fontWeight: 600, marginBottom: 4 }}>Dicas para boas fotos:</p>
-        <ul style={{ paddingLeft: 16, fontSize: 12, color: C.cinzaTexto, lineHeight: 1.7 }}>
-          <li>Fotografe toda a extensão do problema, não apenas um ponto</li>
-          <li>Tire fotos de pelo menos 2 ângulos diferentes</li>
-          <li>Garanta boa iluminação — acenda as luzes se necessário</li>
-          <li>Mínimo de 2 fotos por cômodo, máximo de 10</li>
-        </ul>
-      </div>
-
-      {/* Zona de drag & drop */}
       <div
-        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={e => { e.preventDefault(); setDragOver(false); processarArquivos(e.dataTransfer.files); }}
-        onClick={() => inputRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={e => { e.preventDefault(); setDrag(false); add(e.dataTransfer.files); }}
+        onClick={() => ref.current?.click()}
         style={{
-          border: `2px dashed ${dragOver ? C.azul : C.cinzaBorda}`,
-          borderRadius: 10, padding: "24px 16px", textAlign: "center",
-          background: dragOver ? C.azulFundo : C.cinzaFundo,
-          cursor: "pointer", transition: "all 0.2s ease", marginBottom: 12,
+          border: `2px dashed ${drag ? C.azul : C.cinzaBorda}`,
+          borderRadius: 10, padding: "22px 16px", textAlign: "center",
+          background: drag ? C.azulFundo : C.cinzaFundo,
+          cursor: "pointer", transition: "all .2s", marginBottom: 10,
         }}
       >
-        <input
-          ref={inputRef} type="file" accept="image/*" multiple
-          style={{ display: "none" }}
-          onChange={e => processarArquivos(e.target.files)}
-        />
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" style={{ marginBottom: 8, opacity: 0.5 }}>
-          <rect x="3" y="3" width="18" height="18" rx="3" stroke={C.azul} strokeWidth="1.5" />
-          <circle cx="8.5" cy="8.5" r="1.5" stroke={C.azul} strokeWidth="1.5" />
-          <path d="M21 15l-5-5L5 21" stroke={C.azul} strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-        <p style={{ fontSize: 14, fontWeight: 600, color: C.azulEscuro, marginBottom: 4 }}>
-          Toque para selecionar fotos
-        </p>
-        <p style={{ fontSize: 12, color: C.cinzaTexto }}>ou arraste e solte aqui · JPG, PNG · Máx. 10 fotos</p>
+        <input ref={ref} type="file" accept="image/*" style={{ display: "none" }} onChange={e => add(e.target.files)} />
+        <p style={{ fontSize: 14, fontWeight: 600, color: C.azulEscuro }}>Toque para anexar uma foto do local</p>
       </div>
-
-      {/* Prévia das fotos */}
       {fotos.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <p style={{ fontSize: 12, color: C.cinzaTexto, marginBottom: 8, fontWeight: 600 }}>
-            {fotos.length} foto{fotos.length > 1 ? "s" : ""} selecionada{fotos.length > 1 ? "s" : ""}
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {fotos.map((f, i) => (
-              <CardFoto key={i} foto={f} onRemover={() => remover(i)} />
-            ))}
-          </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+          {fotos.map((f, i) => (
+            <div key={i} style={{ position: "relative", width: 80, height: 80, borderRadius: 8, overflow: "hidden", border: `2px solid ${C.verde}` }}>
+              <img src={f.preview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
+          ))}
         </div>
       )}
-
-      {/* Ações */}
       <div style={{ display: "flex", gap: 8 }}>
-        <button
-          onClick={onCancelar}
-          style={{ flex: 1, padding: "10px", borderRadius: 7, border: `1.5px solid ${C.cinzaBorda}`, background: C.branco, color: C.cinzaTexto, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-        >
-          Cancelar
-        </button>
-        <button
-          onClick={() => fotos.length >= 2 && onEnviar(fotos)}
-          disabled={fotos.length < 2}
-          style={{
-            flex: 2, padding: "10px", borderRadius: 7, border: "none",
-            background: fotos.length >= 2 ? C.azul : C.cinzaBorda,
-            color: C.branco, fontSize: 13, fontWeight: 700,
-            cursor: fotos.length >= 2 ? "pointer" : "not-allowed",
-            transition: "background 0.2s",
-          }}
-        >
-          {fotos.length < 2
-            ? `Adicione mais ${2 - fotos.length} foto${2 - fotos.length > 1 ? "s" : ""}`
-            : `Enviar ${fotos.length} foto${fotos.length > 1 ? "s" : ""}`}
-        </button>
+        <button onClick={onCancelar} style={{ flex: 1, padding: 10, borderRadius: 7, border: `1.5px solid ${C.cinzaBorda}`, background: C.branco, fontWeight: 600 }}>Cancelar</button>
+        <button onClick={() => onEnviar(fotos)} disabled={fotos.length < 1} style={{ flex: 2, padding: 10, borderRadius: 7, border: "none", background: fotos.length >= 1 ? C.azul : C.cinzaBorda, color: C.branco, fontWeight: 700 }}>Enviar Foto</button>
       </div>
     </div>
   );
 };
 
-// ─── Status de protocolo ──────────────────────────────────────────────────────
-const StatusProtocolo = ({ fotos }) => {
-  const total = fotos.reduce((s, g) => s + g.fotos.length, 0);
-  return (
-    <div style={{ background: C.branco, border: `1px solid ${C.cinzaBorda}`, borderRadius: 10, overflow: "hidden", marginBottom: 16, animation: "entrar 0.3s ease" }}>
-      <div style={{ background: C.azulFundo, borderBottom: `1px solid ${C.cinzaBorda}`, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: C.azulEscuro }}>Fotos enviadas nesta sessão</p>
-        <span style={{ background: C.azul, color: C.branco, fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 99 }}>
-          {total} foto{total !== 1 ? "s" : ""}
-        </span>
-      </div>
-      <div style={{ padding: "10px 14px" }}>
-        {fotos.map((g, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: i < fotos.length - 1 ? `1px solid ${C.cinzaBorda}` : "none" }}>
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 600, color: C.texto }}>{g.comodo}</p>
-              <p style={{ fontSize: 11, color: C.cinzaTexto }}>{g.tipoReforma}</p>
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: C.verde }}>
-              {g.fotos.length} foto{g.fotos.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// ─── Contrato ────────────────────────────────────────────────────────────────
-const ContratoDoc = ({ nomeUsuario, onAceitar }) => {
+// --- Painéis Legais --------------------------------------------------------
+const PainelContrato = ({ emp, onAssinar }: { emp: ReturnType<typeof makeEmp>; onAssinar: () => void }) => {
   const [lido, setLido] = useState(false);
-  const scrollRef = useRef(null);
-  const aprovData = (() => { try { return JSON.parse(localStorage.getItem("aprovacaoData") || "{}"); } catch { return {}; } })();
-  const cpfMask = aprovData.cpf || "***.***.***/***-**";
-  const valor = aprovData.valorAprovado ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(aprovData.valorAprovado) : "R$ 15.000,00";
-  const dataAtual = new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
+  const [aceite, setAceite] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const handleScroll = (e) => {
-    const el = e.target;
-    if (el.scrollHeight - el.scrollTop <= el.clientHeight + 30) setLido(true);
+  const checkScroll = () => {
+    const el = scrollRef.current;
+    if (el && el.scrollTop + el.clientHeight >= el.scrollHeight - 15) setLido(true);
   };
 
   return (
-    <div style={{ animation: "entrar 0.3s ease", marginBottom: 16 }}>
-      <div style={{ background: C.azulFundo, border: `1.5px solid ${C.azulClaro}`, borderRadius: 10, overflow: "hidden" }}>
-        {/* Cabeçalho */}
-        <div style={{ background: C.azul, padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <rect x="4" y="2" width="16" height="20" rx="2" stroke="white" strokeWidth="1.8"/>
-            <path d="M8 7h8M8 11h8M8 15h5" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-          </svg>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 700, color: C.branco }}>Contrato de Empréstimo</p>
-            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.7)" }}>Reforma Casa Brasil — CAIXA Econômica Federal</p>
-          </div>
+    <div style={{ animation: "entrar .35s ease", marginBottom: 14 }}>
+      <div style={{ background: C.branco, border: `2px solid ${C.azul}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ background: `linear-gradient(135deg,${C.azulEscuro},${C.azul})`, padding: "16px" }}>
+          <p style={{ fontSize: 14, fontWeight: 800, color: C.branco }}>Cédula de Crédito Bancário Digital</p>
         </div>
-
-        {/* Corpo do contrato scrollável */}
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          style={{ maxHeight: 320, overflowY: "auto", padding: "16px", background: C.branco, fontSize: 12, color: C.texto, lineHeight: 1.75 }}
-        >
-          <p style={{ fontWeight: 700, fontSize: 13, textAlign: "center", marginBottom: 12, color: C.azulEscuro }}>CONTRATO DE MÚTUO HABITACIONAL — REFORMA CASA BRASIL</p>
-          <p style={{ marginBottom: 8 }}><strong>Nº do Contrato:</strong> RCB-{Date.now().toString().slice(-8)}</p>
-          <p style={{ marginBottom: 8 }}><strong>Data:</strong> {dataAtual}</p>
-          <p style={{ marginBottom: 16 }}><strong>Mutuário(a):</strong> {nomeUsuario} · CPF: {cpfMask}</p>
-
-          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 1 — OBJETO</p>
-          <p style={{ marginBottom: 12 }}>A CAIXA ECONÔMICA FEDERAL, instituição financeira sob a forma de empresa pública, concede ao(à) MUTUÁRIO(A) o empréstimo no valor de <strong>{valor}</strong>, destinado exclusivamente à execução de obras de reforma/melhorias habitacionais no imóvel cadastrado, nos termos do programa Reforma Casa Brasil.</p>
-
-          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 2 — CONDIÇÕES FINANCEIRAS</p>
-          <p style={{ marginBottom: 12 }}>O empréstimo será reembolsado em parcelas mensais e consecutivas, com taxa de juros nominal de <strong>1,17% ao mês (Faixa I)</strong>, correspondente a <strong>14,97% ao ano</strong>. O prazo contratual, o valor das parcelas e o cronograma de amortização constam no Plano de Pagamento em Anexo.</p>
-
-          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 3 — LIBERAÇÃO DO CRÉDITO</p>
-          <p style={{ marginBottom: 12 }}>O crédito será liberado em duas parcelas: <strong>90% (noventa por cento)</strong> do valor aprovado após o registro das fotos do "Antes" e quitação das taxas administrativas previstas; e <strong>10% (dez por cento)</strong> restantes após aprovação das fotos do "Depois", comprovando a conclusão da reforma.</p>
-
-          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 4 — TAXAS E ENCARGOS ADMINISTRATIVOS</p>
-          <p style={{ marginBottom: 12 }}>Para processamento do contrato e ativação do cadastro junto ao sistema federal de habitação, será cobrada a <strong>Taxa de Cadastro e Análise (TCA)</strong> no valor de <strong>R$ 59,40 (cinquenta e nove reais e quarenta centavos)</strong>, recolhida por meio de Guia de Recolhimento da União (GRU), com vencimento em até 24 horas após a assinatura deste contrato. A não quitação dentro do prazo implicará no bloqueio preventivo do CPF do(a) mutuário(a) nos sistemas do Ministério da Fazenda e suspensão da solicitação.</p>
-
-          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 5 — OBRIGAÇÕES DO MUTUÁRIO</p>
-          <ul style={{ paddingLeft: 16, marginBottom: 12 }}>
-            <li>Utilizar os recursos exclusivamente para a reforma contratada;</li>
-            <li>Iniciar as obras em até 30 dias após o recebimento do crédito;</li>
-            <li>Concluir as obras no prazo máximo de 60 dias;</li>
-            <li>Enviar o relatório fotográfico do "Depois" ao término da obra;</li>
-            <li>Manter o imóvel como garantia durante todo o período contratual.</li>
-          </ul>
-
-          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 6 — RESCISÃO</p>
-          <p style={{ marginBottom: 12 }}>O presente contrato poderá ser rescindido por descumprimento de qualquer cláusula, devendo o(a) mutuário(a) devolver os valores recebidos acrescidos de juros e multa contratual de 2% sobre o saldo devedor.</p>
-
-          <p style={{ fontWeight: 700, marginBottom: 6, color: C.azulEscuro }}>CLÁUSULA 7 — FORO</p>
-          <p style={{ marginBottom: 16 }}>As partes elegem o foro da Comarca do domicílio do(a) mutuário(a) para dirimir eventuais litígios decorrentes deste instrumento, com renúncia expressa a qualquer outro.</p>
-
-          <p style={{ textAlign: "center", fontSize: 11, color: C.cinzaTexto }}>— Fim do contrato — Role até o fim para habilitar a assinatura —</p>
+        <div ref={scrollRef} onScroll={checkScroll} style={{ maxHeight: 250, overflowY: "auto", padding: 16, fontSize: 12, color: C.cinzaTexto, lineHeight: 1.8 }}>
+          <p><strong>CONTRATANTE:</strong> {emp.nome} · CPF {emp.cpf}</p>
+          <p><strong>CONTRATADA:</strong> Caixa Econômica Federal</p>
+          <br />
+          <p><strong>1. OBJETO:</strong> Empréstimo Reforma Casa Brasil.</p>
+          <p><strong>2. VALOR:</strong> {fmt(emp.valor)} em {emp.parcelas}x de {fmt(emp.parcela)}.</p>
+          <p><strong>3. LIBERAÇÃO:</strong> 90% após assinatura e 10% após vistoria final.</p>
+          <br />
+          <p><strong>IMPORTANTE:</strong> O presente contrato possui validade jurídica plena conforme MP 2.200-2/2001. A assinatura deste documento vincula o CPF do contratante à dívida e às obrigações do programa.</p>
         </div>
-
-        {/* Instrução de scroll */}
-        {!lido && (
-          <div style={{ padding: "8px 16px", background: C.amareloSub, borderTop: `1px solid #f0d090`, fontSize: 12, color: "#5a3e00", textAlign: "center" }}>
-            ↓ Role o contrato até o final para habilitar a assinatura
+        {lido && (
+          <div style={{ padding: 16, background: C.cinzaFundo }}>
+            <label style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <input type="checkbox" checked={aceite} onChange={e => setAceite(e.target.checked)} />
+              <span style={{ fontSize: 12 }}>Li e aceito os termos do contrato.</span>
+            </label>
+            <button onClick={onAssinar} disabled={!aceite} style={{ width: "100%", padding: 12, background: aceite ? C.verde : C.cinzaBorda, color: C.branco, border: "none", borderRadius: 8, fontWeight: 800 }}>Assinar Digitalmente</button>
           </div>
         )}
-
-        {/* Ação */}
-        <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.cinzaBorda}`, background: C.cinzaFundo }}>
-          <button
-            onClick={onAceitar}
-            disabled={!lido}
-            style={{
-              width: "100%", padding: "12px", borderRadius: 8, border: "none",
-              background: lido ? C.azul : C.cinzaBorda,
-              color: C.branco, fontWeight: 700, fontSize: 14,
-              cursor: lido ? "pointer" : "not-allowed", transition: "background 0.2s",
-            }}
-          >
-            {lido ? "✓ Li e aceito o contrato — prosseguir para assinatura" : "Role o contrato para habilitar"}
-          </button>
-        </div>
       </div>
     </div>
   );
 };
 
-// ─── Assinatura Digital ───────────────────────────────────────────────────────
-const AssinaturaDigital = ({ nomeUsuario, onAssinar }) => {
-  const canvasRef = useRef(null);
-  const [desenhando, setDesenhando] = useState(false);
+const PainelAssinatura = ({ emp, onConfirmar }: { emp: ReturnType<typeof makeEmp>; onConfirmar: (img: string) => void }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [temTraco, setTemTraco] = useState(false);
-  const [assinado, setAssinado] = useState(false);
-  const ultimoPonto = useRef({ x: 0, y: 0 });
-
-  const getPos = (e, canvas) => {
-    const rect = canvas.getBoundingClientRect();
-    const src = e.touches ? e.touches[0] : e;
-    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
-  };
-
-  const iniciar = (e) => {
-    const canvas = canvasRef.current;
-    const pos = getPos(e, canvas);
-    ultimoPonto.current = pos;
-    setDesenhando(true);
-    setTemTraco(true);
-    const ctx = canvas.getContext("2d");
-    ctx.beginPath();
-    ctx.arc(pos.x, pos.y, 1, 0, Math.PI * 2);
-    ctx.fillStyle = C.azulEscuro;
-    ctx.fill();
-  };
-
-  const desenhar = (e) => {
-    if (!desenhando) return;
-    e.preventDefault();
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    const pos = getPos(e, canvas);
-    ctx.beginPath();
-    ctx.moveTo(ultimoPonto.current.x, ultimoPonto.current.y);
-    ctx.lineTo(pos.x, pos.y);
-    ctx.strokeStyle = C.azulEscuro;
-    ctx.lineWidth = 2.2;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.stroke();
-    ultimoPonto.current = pos;
-  };
-
-  const parar = () => setDesenhando(false);
 
   const limpar = () => {
-    const canvas = canvasRef.current;
-    canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+    const cv = canvasRef.current;
+    if (!cv) return;
+    cv.getContext("2d")!.clearRect(0, 0, cv.width, cv.height);
     setTemTraco(false);
   };
 
-  const confirmar = () => {
-    setAssinado(true);
-    onAssinar();
+  const iniciar = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext("2d")!;
+    ctx.strokeStyle = C.azulEscuro;
+    ctx.lineWidth = 2;
+    const rect = cv.getBoundingClientRect();
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    cv.onmousemove = (ev: MouseEvent) => {
+      ctx.lineTo((ev as MouseEvent).clientX - rect.left, (ev as MouseEvent).clientY - rect.top);
+      ctx.stroke();
+      setTemTraco(true);
+    };
   };
 
   return (
-    <div style={{ animation: "entrar 0.3s ease", marginBottom: 16 }}>
-      <div style={{ background: C.branco, border: `1.5px solid ${C.cinzaBorda}`, borderRadius: 10, overflow: "hidden" }}>
-        <div style={{ background: C.azulFundo, borderBottom: `1px solid ${C.cinzaBorda}`, padding: "12px 16px" }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: C.azulEscuro }}>Assinatura Digital</p>
-          <p style={{ fontSize: 11, color: C.cinzaTexto }}>Assine com o dedo ou mouse no campo abaixo</p>
-        </div>
-        <div style={{ padding: "16px" }}>
-          <p style={{ fontSize: 12, color: C.cinzaTexto, marginBottom: 8 }}>Assine como: <strong style={{ color: C.azulEscuro }}>{nomeUsuario}</strong></p>
-          <div style={{ border: `2px dashed ${C.azulClaro}`, borderRadius: 8, background: "#f9fbff", marginBottom: 10, overflow: "hidden", position: "relative" }}>
-            <canvas
-              ref={canvasRef}
-              width={480} height={140}
-              style={{ width: "100%", height: 140, touchAction: "none", cursor: "crosshair", display: "block" }}
-              onMouseDown={iniciar} onMouseMove={desenhar} onMouseUp={parar} onMouseLeave={parar}
-              onTouchStart={iniciar} onTouchMove={desenhar} onTouchEnd={parar}
-            />
-            {!temTraco && (
-              <p style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 13, color: "#bbb", pointerEvents: "none", whiteSpace: "nowrap" }}>
-                ✏️ Assine aqui
-              </p>
-            )}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={limpar} style={{ flex: 1, padding: "9px", borderRadius: 7, border: `1.5px solid ${C.cinzaBorda}`, background: C.branco, color: C.cinzaTexto, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Limpar</button>
-            <button
-              onClick={confirmar}
-              disabled={!temTraco || assinado}
-              style={{ flex: 2, padding: "9px", borderRadius: 7, border: "none", background: temTraco && !assinado ? C.verde : C.cinzaBorda, color: C.branco, fontSize: 13, fontWeight: 700, cursor: temTraco && !assinado ? "pointer" : "not-allowed", transition: "background 0.2s" }}
-            >
-              {assinado ? "✓ Assinado" : "Confirmar assinatura"}
-            </button>
-          </div>
+    <div style={{ animation: "entrar .35s ease", marginBottom: 14 }}>
+      <div style={{ background: C.branco, border: `2px solid ${C.azul}`, borderRadius: 12, padding: 16 }}>
+        <p style={{ fontSize: 14, fontWeight: 700, color: C.azulEscuro, marginBottom: 8 }}>Assinatura na Tela</p>
+        <p style={{ fontSize: 11, color: C.cinzaLabel, marginBottom: 8 }}>Use o mouse para assinar abaixo — {emp.nome}</p>
+        <canvas
+          ref={canvasRef}
+          onMouseDown={iniciar}
+          onMouseUp={() => { if (canvasRef.current) canvasRef.current.onmousemove = null; }}
+          width={400} height={150}
+          style={{ width: "100%", height: 150, border: `1px dashed ${C.cinzaBorda}`, background: "#fafbff", borderRadius: 8, cursor: "crosshair" }}
+        />
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <button onClick={limpar} style={{ flex: 1, padding: 10, borderRadius: 8, border: `1px solid ${C.cinzaBorda}`, background: C.branco, fontWeight: 600 }}>Limpar</button>
+          <button onClick={() => onConfirmar(canvasRef.current!.toDataURL())} disabled={!temTraco} style={{ flex: 2, padding: 10, background: temTraco ? C.azul : C.cinzaBorda, color: C.branco, border: "none", borderRadius: 8, fontWeight: 700 }}>Confirmar Assinatura</button>
         </div>
       </div>
     </div>
   );
 };
 
-// ─── Aviso GRU ────────────────────────────────────────────────────────────────
-const AvisoGRU = ({ onPagar }) => (
-  <div style={{ animation: "entrar 0.4s ease", marginBottom: 16 }}>
-    {/* Alerta principal */}
-    <div style={{ background: "#fff3cd", border: "2px solid #e0a800", borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
+const PainelSeguro = ({ onConfirmar }: { onConfirmar: () => void }) => (
+  <div style={{ animation: "entrar .3s ease", marginBottom: 14 }}>
+    <div style={{ background: "#fff3cd", border: "2px solid #e0a800", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
       <div style={{ background: "#e0a800", padding: "10px 16px", display: "flex", alignItems: "center", gap: 8 }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
           <path d="M12 2L2 20h20L12 2z" stroke="white" strokeWidth="2" strokeLinejoin="round"/>
           <path d="M12 9v5M12 16.5v.5" stroke="white" strokeWidth="2" strokeLinecap="round"/>
         </svg>
-        <p style={{ fontSize: 13, fontWeight: 700, color: "white" }}>ATENÇÃO — Pagamento obrigatório de taxa</p>
+        <p style={{ fontSize: 13, fontWeight: 700, color: "white" }}>Seguro Habitacional Obrigatório — Pendência Identificada</p>
       </div>
-      <div style={{ padding: "16px", fontSize: 13, color: "#5a3e00", lineHeight: 1.7 }}>
-        <p style={{ marginBottom: 10 }}>Para a <strong>ativação do seu contrato</strong> e liberação do crédito, é necessário efetuar o pagamento da <strong>Taxa de Cadastro e Análise (TCA)</strong> via <strong>GRU — Guia de Recolhimento da União</strong>.</p>
+      <div style={{ padding: "14px 16px", fontSize: 13, color: "#5a3e00", lineHeight: 1.75 }}>
+        <p style={{ marginBottom: 10 }}>
+          Sua assinatura digital foi registrada com sucesso. Porém, para que o <strong>depósito dos 90% do crédito</strong> seja liberado em sua conta, é obrigatória a contratação do <strong>Seguro de Proteção Habitacional</strong>.
+        </p>
         <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 8, padding: "12px 14px", marginBottom: 10, border: "1px solid #e0a800" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 12, fontWeight: 600 }}>Valor da taxa (TCA):</span>
+            <span style={{ fontSize: 12, fontWeight: 600 }}>Valor do Seguro Obrigatório:</span>
             <span style={{ fontSize: 22, fontWeight: 800, color: "#b35c00" }}>R$ 59,40</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 12 }}>
             <span>Vencimento:</span>
-            <span style={{ fontWeight: 700, color: "#a00" }}>Hoje — em até 24 horas</span>
+            <span style={{ fontWeight: 700, color: "#a00" }}>Hoje — prazo máximo de 24 horas</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 12 }}>
+            <span>Forma de pagamento:</span>
+            <span style={{ fontWeight: 600 }}>GRU — Guia de Recolhimento da União</span>
           </div>
         </div>
-        <p style={{ marginBottom: 6 }}>Código de unidade gestora: <strong>170500</strong> · Gestão: <strong>00001</strong></p>
-        <p style={{ fontSize: 12 }}>Recolhimento: Receita Federal do Brasil — Ref. Habitação Social/CAIXA</p>
-      </div>
-    </div>
-
-    {/* Aviso de bloqueio de CPF */}
-    <div style={{ background: "#fde8e6", border: "2px solid #e52207", borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
-          <circle cx="12" cy="12" r="10" stroke="#e52207" strokeWidth="2"/>
-          <path d="M12 7v6M12 15.5v.5" stroke="#e52207" strokeWidth="2" strokeLinecap="round"/>
-        </svg>
-        <div>
-          <p style={{ fontSize: 13, fontWeight: 700, color: "#a00", marginBottom: 4 }}>⚠️ Consequências do não pagamento:</p>
-          <ul style={{ paddingLeft: 16, fontSize: 12, color: "#600", lineHeight: 1.7 }}>
-            <li>Bloqueio preventivo do CPF nos sistemas do <strong>Ministério da Fazenda</strong></li>
-            <li>Suspensão imediata do processo de contratação</li>
-            <li>Inscrição em cadastro de inadimplentes habitacionais (CIH)</li>
-            <li>Impedimento de novas solicitações por <strong>24 meses</strong></li>
-          </ul>
-        </div>
+        <p style={{ fontSize: 12 }}>
+          O valor será recolhido via sistema oficial da Receita Federal. Após a confirmação, o depósito será processado automaticamente em sua conta cadastrada.
+        </p>
       </div>
     </div>
 
     <button
-      onClick={onPagar}
+      onClick={onConfirmar}
       style={{
         width: "100%", padding: "15px", borderRadius: 9, border: "none",
         background: "linear-gradient(135deg, #168821, #0e5c17)",
-        color: C.branco, fontSize: 16, fontWeight: 800, cursor: "pointer",
+        color: C.branco, fontSize: 15, fontWeight: 800, cursor: "pointer",
         boxShadow: "0 4px 16px rgba(22,136,33,0.35)", letterSpacing: 0.3,
       }}
     >
-      Pagar GRU — R$ 59,40 →
+      Pagar Seguro Obrigatório — R$ 59,40 →
     </button>
-    <p style={{ fontSize: 11, color: C.cinzaLabel, textAlign: "center", marginTop: 8 }}>Pagamento 100% seguro via sistema oficial da Receita Federal</p>
+    <p style={{ fontSize: 11, color: C.cinzaLabel, textAlign: "center", marginTop: 8 }}>
+      Pagamento seguro via GRU · Sistema oficial da Receita Federal do Brasil
+    </p>
   </div>
 );
 
-// ─── Header do chat ───────────────────────────────────────────────────────────
-const HeaderChat = ({ online }) => (
-  <div style={{ background: `linear-gradient(135deg, ${C.azulEscuro}, ${C.azul})`, padding: "0" }}>
-    {/* Topo gov */}
-    <div style={{ background: "rgba(0,0,0,0.2)", padding: "4px 16px", display: "flex", justifyContent: "space-between" }}>
-      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.7)" }}>gov.br</span>
-      <div style={{ display: "flex", gap: 12 }}>
-        {["Acesso à Informação", "Acessibilidade"].map(l => (
-          <a key={l} href="#" style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", textDecoration: "none" }}>{l}</a>
-        ))}
-      </div>
-    </div>
+// Remove mensagens duplicadas consecutivas do mesmo remetente
+const dedupeConsecutiveMessages = (arr: { tipo: string; texto?: string; fotos?: { preview: string }[]; comodo?: string; horario: string; id: number }[]) => {
+  const out: typeof arr = [];
+  for (const m of arr) {
+    const prev = out[out.length - 1];
+    if (!prev) { out.push(m); continue; }
+    const sameSender = prev.tipo === m.tipo;
+    let sameContent = false;
+    if (m.tipo === "fotos") {
+      const a = prev.fotos ?? [];
+      const b = m.fotos ?? [];
+      sameContent = prev.comodo === m.comodo && a.length === b.length && a.every((f, i) => f.preview === b[i].preview);
+    } else {
+      sameContent = prev.texto === m.texto;
+    }
+    if (!(sameSender && sameContent)) out.push(m);
+  }
+  return out;
+};
 
-    {/* Info do agente */}
-    <div style={{ padding: "14px 16px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-      <div style={{ position: "relative" }}>
-        <AvatarAgente tamanho={46} />
-        <div style={{
-          position: "absolute", bottom: 1, right: 1, width: 11, height: 11,
-          borderRadius: "50%", background: online ? "#4caf50" : "#9e9e9e",
-          border: "2px solid white",
-        }} />
-      </div>
-      <div style={{ flex: 1 }}>
-        <p style={{ fontSize: 15, fontWeight: 700, color: C.branco, lineHeight: 1.2 }}>{AGENTE.nome}</p>
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.75)" }}>{AGENTE.cargo} · ID {AGENTE.id}</p>
-      </div>
-      <div style={{ textAlign: "right" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
-          <div style={{ width: 7, height: 7, borderRadius: "50%", background: online ? "#4caf50" : "#9e9e9e" }} />
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)" }}>{online ? "Disponível" : "Ocupado"}</span>
-        </div>
-        <p style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>Reforma Casa Brasil</p>
-      </div>
-    </div>
+// --- APP PRINCIPAL ---------------------------------------------------------
+export default function ChatBot() {
+  const navigate = useNavigate();
 
-    {/* Breadcrumb */}
-    <div style={{ background: "rgba(0,0,0,0.15)", padding: "6px 16px", fontSize: 11, color: "rgba(255,255,255,0.65)" }}>
-      Início › Habitação › Reforma Casa Brasil › Envio de Fotos
-    </div>
-  </div>
-);
+  const rawUser = typeof window !== "undefined" ? localStorage.getItem("userData") : null;
+  const userData = rawUser ? JSON.parse(rawUser) : null;
+  const nomeCompleto: string = userData?.nome ?? "Maria Aparecida dos Santos";
+  const primeiroNome = nomeCompleto.split(" ")[0];
 
-// ─── APP PRINCIPAL ───────────────────────────────────────────────────────────
-export default function ChatBot({ nomeUsuario = "Maria Aparecida" }) {
-  const [mensagens, setMensagens]         = useState([]);
-  const [fase, setFase]                   = useState("aguardando"); // aguardando | comodo | tipo_reforma | upload | mais_comodos | concluido
-  const [comodoAtual, setComodoAtual]     = useState(null);
-  const [tipoReforma, setTipoReforma]     = useState(null);
-  const [fotosEnviadas, setFotosEnviadas] = useState([]); // [{comodo, tipoReforma, fotos}]
-  const [digitando, setDigitando]         = useState(false);
-  const [inputTexto, setInputTexto]       = useState("");
-  const [online]                          = useState(true);
-  const fimRef                            = useRef(null);
-  const inputRef                          = useRef(null);
-  const navigate                          = useNavigate();
+  const emp = makeEmp(nomeCompleto);
 
-  // Scroll automático
-  useEffect(() => {
-    fimRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [mensagens, digitando, fase]);
+  const [msgs, setMsgs] = useState<{ tipo: string; texto?: string; fotos?: { preview: string }[]; comodo?: string; horario: string; id: number }[]>([]);
+  const [fase, setFase] = useState("aguardando");
+  const [comodo, setComodo] = useState<string | null>(null);
+  const [tipo, setTipo] = useState<string | null>(null);
+  const [digitando, setDigitando] = useState(false);
+  const [assinatura, setAssinatura] = useState<string | null>(null);
+  const fimRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Mensagem do agente com delay e animação de digitação
-  const agenteDiz = (texto, delay = 600) => {
-    return new Promise((resolve) => {
+  const msgsFiltrados = React.useMemo(() => dedupeConsecutiveMessages(msgs), [msgs]);
+
+  useEffect(() => { 
+    const c = containerRef.current;
+    if (c) c.scrollTop = c.scrollHeight;
+  }, [msgs, digitando, fase]);
+
+  const agenteDiz = (texto: string, delay = 500) =>
+    new Promise<void>(resolve => {
+      // Show "Ana está digitando..." indicator before message appears
+      setDigitando(true);
       setTimeout(() => {
-        setDigitando(true);
-        setTimeout(() => {
-          setDigitando(false);
-          setMensagens(prev => [...prev, {
-            tipo: "agente", texto, horario: hora(), id: Date.now(),
-          }]);
-          resolve();
-        }, 1200 + texto.length * 12);
+        // Hide the generic indicator and start typing effect in the message bubble
+        setDigitando(false);
+
+        const id = Date.now() + Math.random();
+        const horarioStr = hora();
+        // append an empty agent message which will be filled char-by-char
+        setMsgs(p => [...p, { tipo: "agente", texto: "", horario: horarioStr, id }]);
+
+        // Calculate typing speed: cap total time so long messages don't take too long
+        const totalTime = Math.min(Math.max(texto.length * 30, 350), 1200); // ms
+        const charDelay = Math.max(8, Math.floor(totalTime / Math.max(1, texto.length)));
+
+        let idx = 0;
+        const interval = setInterval(() => {
+          idx += 1;
+          const partial = texto.slice(0, idx);
+          setMsgs(prev => prev.map(m => (m.id === id ? { ...m, texto: partial } : m)));
+          // keep scroll following the typing (instant)
+          const c = containerRef.current;
+          if (c) c.scrollTop = c.scrollHeight;
+          if (idx >= texto.length) {
+            clearInterval(interval);
+            resolve();
+          }
+        }, charDelay);
+
       }, delay);
+
+      // safety: if component unmounts or promise should be cancelled, clear timeout
+      // (no explicit cancellation implemented here)
     });
-  };
 
-  // Mensagem do usuário
-  const usuarioDiz = (texto) => {
-    setMensagens(prev => [...prev, {
-      tipo: "usuario", texto, horario: hora(), id: Date.now(),
-    }]);
-  };
+  const userDiz = (t: string) =>
+    setMsgs(p => [...p, { tipo: "usuario", texto: t, horario: hora(), id: Date.now() + Math.random() }]);
 
-  // Fotos do usuário
-  const usuarioEnviaFotos = (fotos, comodo, tipoRef) => {
-    setMensagens(prev => [...prev, {
-      tipo: "fotos", fotos, comodo, tipoRef, horario: hora(), id: Date.now(),
-    }]);
-  };
+  const userFotos = (fotos: { preview: string }[], comodoNome: string) =>
+    setMsgs(p => [...p, { tipo: "fotos", fotos, comodo: comodoNome, horario: hora(), id: Date.now() + Math.random() }]);
 
-  // Início da conversa
   useEffect(() => {
-    const iniciar = async () => {
-      await agenteDiz(
-        `Olá, ${nomeUsuario}! Sou o ${AGENTE.nome}, analista de habitação responsável pelo acompanhamento da sua solicitação do programa Reforma Casa Brasil.\n\nSua solicitação de empréstimo foi aprovada! Para darmos continuidade à liberação do crédito, preciso que você envie as fotos do imóvel antes de iniciar a obra — são as fotos do \"Antes\".`,
-        800
-      );
-      await agenteDiz(
-        `Essas fotos são obrigatórias e comprovam o estado atual do imóvel. Elas serão comparadas com as fotos do \"Depois\", que você enviará ao concluir a reforma.\n\nVamos começar. Por favor, me diga: qual é o cômodo ou área que você pretende reformar?`,
-        400
-      );
+    (async () => {
+      await agenteDiz(`Olá, ${primeiroNome}! Sou a Ana, sua consultora CAIXA.`);
+      await agenteDiz(`Seu crédito de ${fmt(emp.valor)} foi pré-aprovado! Para liberar os primeiros 90%, preciso que selecione o cômodo da reforma:`);
       setFase("comodo");
-    };
-    iniciar();
-  }, []);
+    })();
+  }, [primeiroNome, emp.valor]);
 
-  // Usuário seleciona cômodo
-  const handleComodo = async (opcoes) => {
-    const comodo = opcoes[0];
-    setComodoAtual(comodo);
-    usuarioDiz(comodo);
-    setFase("aguardando");
-    await agenteDiz(`Entendido — ${comodo}. E qual é o tipo de problema ou reforma que será realizada neste local?`, 300);
-    setFase("tipo_reforma");
+  const handleComodo = async (op: string) => {
+    setComodo(op); userDiz(op); setFase("aguardando");
+    await agenteDiz(`Entendido. Qual o tipo de serviço no(a) ${op}?`);
+    setFase("tipo");
   };
 
-  // Usuário seleciona tipo de reforma
-  const handleTipoReforma = async (opcoes) => {
-    const tipo = opcoes[0];
-    setTipoReforma(tipo);
-    usuarioDiz(tipo);
-    setFase("aguardando");
-    await agenteDiz(
-      `Perfeito. Agora preciso que você envie as fotos de \"${comodoAtual}\" mostrando o problema de ${tipo.toLowerCase()}.\n\nLembre-se:\n• Mínimo 2 fotos por cômodo\n• Fotografe toda a extensão do problema\n• Pelo menos 2 ângulos diferentes\n• Boa iluminação é essencial`,
-      300
-    );
+  const handleTipo = async (op: string) => {
+    setTipo(op); userDiz(op); setFase("aguardando");
+    await agenteDiz(`Agora envie 1 foto do estado atual do local para o laudo inicial:`);
     setFase("upload");
   };
 
-  // Usuário envia fotos
-  const handleFotos = async (fotos) => {
-    usuarioEnviaFotos(fotos, comodoAtual, tipoReforma);
-    const grupo = { comodo: comodoAtual, tipoReforma, fotos };
-    const novasFotos = [...fotosEnviadas, grupo];
-    setFotosEnviadas(novasFotos);
+  const handleFotos = async (fotos: { preview: string; nome: string }[]) => {
+    userFotos(fotos, comodo!);
     setFase("aguardando");
-
-    await agenteDiz(
-      `Recebi ${fotos.length} foto${fotos.length > 1 ? "s" : ""} de \"${comodoAtual}\" — ${tipoReforma}. Obrigado!\n\nVocê tem mais algum cômodo ou área para registrar?`,
-      300
-    );
-    setFase("mais_comodos");
+    await agenteDiz(`Fotos recebidas! Tudo pronto para a formalização.`);
+    await agenteDiz(`Abaixo está o seu contrato. Leia e assine digitalmente para prosseguirmos com o depósito.`);
+    setFase("contrato");
   };
 
-  // Mais cômodos ou finalizar
-  const handleMaisComodos = async (resposta) => {
-    usuarioDiz(resposta);
+  const handleAssinatura = async (img: string) => {
+    setAssinatura(img);
+    userDiz("Assinatura digital confirmada.");
     setFase("aguardando");
-    if (resposta === "Sim, tenho mais áreas") {
-      setComodoAtual(null);
-      setTipoReforma(null);
-      await agenteDiz("Ótimo! Qual é o próximo cômodo ou área?", 300);
-      setFase("comodo");
-    } else {
-      const total = fotosEnviadas.reduce((s, g) => s + g.fotos.length, 0);
-      await agenteDiz(
-        `Perfeito! Vou registrar o encerramento do envio das fotos do \"Antes\".\n\nResumo do envio:\n• ${fotosEnviadas.length} cômodo${fotosEnviadas.length > 1 ? "s" : ""} registrado${fotosEnviadas.length > 1 ? "s" : ""}\n• ${total} fotos no total\n\nSuas fotos foram registradas com sucesso no protocolo da sua solicitação. Você pode iniciar a reforma assim que receber o depósito em conta.`,
-        300
-      );
-      await agenteDiz(
-        `Perfeito, ${nomeUsuario.split(" ")[0]}! As fotos foram registradas.\n\nAgora, para concluir o processo, vou enviar o contrato de empréstimo para você ler e assinar digitalmente.`,
-        600
-      );
-      setFase("contrato");
-    }
+    await agenteDiz(`Assinatura vinculada com sucesso ao protocolo ${emp.protocolo}!`);
+    await agenteDiz(`Atenção: para a ativação do crédito habitacional, é obrigatória a contratação do Seguro de Proteção no valor de R$ 59,40.`);
+    await agenteDiz(`Como a assinatura digital já foi realizada, este pagamento é indispensável para evitar o bloqueio do seu CPF por quebra de protocolo administrativo.`);
+    setFase("alerta_seguro");
   };
 
-  // Usuário aceita contrato
-  const handleAceitarContrato = async () => {
-    usuarioDiz("Li e aceito o contrato.");
+  const confirmarSeguro = async () => {
+    userDiz("Entendido. Desejo gerar a GRU agora.");
     setFase("aguardando");
-    await agenteDiz(
-      `Ótimo! Agora preciso da sua assinatura digital para validar o contrato junto ao sistema da CAIXA.`,
-      400
-    );
-    setFase("assinatura");
+    await agenteDiz("Gerando Guia de Recolhimento da União (GRU)...");
+    navigate("/pagamento-gru");
   };
 
-  // Usuário assina
-  const handleAssinar = async () => {
-    usuarioDiz("[Assinatura digital realizada]");
-    setFase("aguardando");
-    await agenteDiz(
-      `Assinatura registrada com sucesso! ✓\n\nSeu contrato foi validado e o número de protocolo foi gerado.\n\nHá apenas uma etapa pendente antes da liberação do crédito: o pagamento da Taxa de Cadastro e Análise (TCA) no valor de R$ 59,40, obrigatória para ativar o contrato no sistema federal.`,
-      400
-    );
-    setFase("aviso_gru");
-  };
-
-  // Envio de texto livre
-  const handleEnvioTexto = () => {
-    if (!inputTexto.trim()) return;
-    usuarioDiz(inputTexto);
-    setInputTexto("");
-  };
+  // suppress unused warning
+  void assinatura;
 
   return (
-    <div style={{
-      fontFamily: "'Segoe UI', Arial, sans-serif",
-      background: C.cinzaFundo, minHeight: "100vh",
-      display: "flex", flexDirection: "column", alignItems: "center",
-      padding: "0 0 30px",
-    }}>
+    <div style={{ fontFamily: "sans-serif", background: C.cinzaFundo, minHeight: "100vh", display: "flex", justifyContent: "center" }}>
       <style>{`
-        @keyframes entrar { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes piscar {
-          0%, 100% { opacity: 0.3; transform: scale(0.85); }
-          50% { opacity: 1; transform: scale(1); }
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        button { font-family: inherit; }
-        input { font-family: inherit; }
-        button:hover:not(:disabled) { filter: brightness(0.92); }
-        input:focus { outline: none; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${C.cinzaBorda}; border-radius: 2px; }
+        @keyframes entrar { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
+        @keyframes piscar { 0%,100% { opacity:.3; transform:scale(.8) } 50% { opacity:1; transform:scale(1) } }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        button { font-family:inherit; cursor:pointer; }
+        button:hover:not(:disabled) { filter:brightness(.93); }
       `}</style>
-
-      {/* Container do chat */}
-      <div style={{
-        width: "100%", maxWidth: 560,
-        background: C.branco,
-        display: "flex", flexDirection: "column",
-        minHeight: "100vh",
-        boxShadow: "0 0 40px rgba(0,0,0,0.1)",
-      }}>
+      <div style={{ width: "100%", maxWidth: 500, background: C.branco, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
 
         {/* Header */}
-        <HeaderChat online={online} />
-
-        {/* Protocolo */}
-        <div style={{ background: C.amareloSub, borderBottom: `1px solid #f0d090`, padding: "8px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <p style={{ fontSize: 11, color: "#5a3e00", fontWeight: 600 }}>Protocolo de envio de fotos</p>
-          <p style={{ fontSize: 11, color: "#5a3e00", fontWeight: 700 }}>RCB-{Date.now().toString().slice(-7)}</p>
+        <div style={{ background: C.azulEscuro, padding: 15, color: C.branco }}>
+          <p style={{ fontSize: 16, fontWeight: 700 }}>CAIXA · Reforma Casa Brasil</p>
+          <p style={{ fontSize: 11, opacity: 0.8 }}>Consultora Virtual: {AGENTE.nome}</p>
         </div>
 
-        {/* Área de mensagens */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 8px" }}>
-
-          {/* Data */}
-          <div style={{ textAlign: "center", marginBottom: 20 }}>
-            <span style={{ background: C.cinzaBorda, color: C.cinzaTexto, fontSize: 11, padding: "3px 12px", borderRadius: 99 }}>
-              Hoje, {hora()}
-            </span>
-          </div>
-
-          {/* Mensagens */}
-          {mensagens.map((m) => {
+        {/* Mensagens */}
+        <div ref={containerRef} style={{ flex: 1, overflowY: "auto", padding: 15 }}>
+          {msgsFiltrados.map(m => {
             if (m.tipo === "agente") return <BolhaAgente key={m.id} texto={m.texto} horario={m.horario} />;
-            if (m.tipo === "usuario") return <BolhaUsuario key={m.id} texto={m.texto} horario={m.horario} />;
-            if (m.tipo === "fotos") return <BolhaFotos key={m.id} fotos={m.fotos} comodo={m.comodo} horario={m.horario} />;
-            return null;
+            if (m.tipo === "fotos") return <BolhaFotos key={m.id} fotos={m.fotos!} comodo={m.comodo!} horario={m.horario} />;
+            return <BolhaUser key={m.id} texto={m.texto!} horario={m.horario} />;
           })}
+          {digitando && <BolhaAgente animando />}
 
-          {/* Indicador de digitação */}
-          {digitando && <BolhaAgente texto="" horario={hora()} animando />}
-
-          {/* Controles interativos por fase */}
           {!digitando && (
             <div>
-              {fase === "comodo" && (
-                <SeletorOpcoes
-                  opcoes={COMODOS}
-                  onSelecionar={handleComodo}
-                  titulo="Selecione o cômodo ou área:"
-                />
-              )}
-
-              {fase === "tipo_reforma" && (
-                <SeletorOpcoes
-                  opcoes={TIPOS_REFORMA}
-                  onSelecionar={handleTipoReforma}
-                  titulo="Selecione o tipo de reforma:"
-                />
-              )}
-
-              {fase === "upload" && (
-                <ZonaUpload
-                  comodo={comodoAtual}
-                  tipoReforma={tipoReforma}
-                  onEnviar={handleFotos}
-                  onCancelar={() => setFase("tipo_reforma")}
-                />
-              )}
-
-              {fase === "mais_comodos" && (
-                <>
-                  {fotosEnviadas.length > 0 && <StatusProtocolo fotos={fotosEnviadas} />}
-                  <SeletorOpcoes
-                    opcoes={["Sim, tenho mais áreas", "Não, concluí o envio"]}
-                    onSelecionar={(ops) => handleMaisComodos(ops[0])}
-                    titulo="Deseja registrar mais áreas?"
-                  />
-                </>
-              )}
-
-              {fase === "contrato" && (
-                <ContratoDoc nomeUsuario={nomeUsuario} onAceitar={handleAceitarContrato} />
-              )}
-
-              {fase === "assinatura" && (
-                <AssinaturaDigital nomeUsuario={nomeUsuario} onAssinar={handleAssinar} />
-              )}
-
-              {fase === "aviso_gru" && (
-                <AvisoGRU onPagar={() => navigate('/pagamento-gru')} />
-              )}
+              {fase === "comodo" && <Chips opcoes={COMODOS} onSelect={handleComodo} titulo="Selecione:" />}
+              {fase === "tipo" && <Chips opcoes={TIPOS_REFORMA} onSelect={handleTipo} titulo="Tipo de obra:" />}
+              {fase === "upload" && <UploadFotos comodo={comodo!} tipo={tipo!} onEnviar={handleFotos} onCancelar={() => setFase("tipo")} />}
+              {fase === "contrato" && <PainelContrato emp={emp} onAssinar={() => setFase("assinar")} />}
+              {fase === "assinar" && <PainelAssinatura emp={emp} onConfirmar={handleAssinatura} />}
+              {fase === "alerta_seguro" && <PainelSeguro onConfirmar={confirmarSeguro} />}
             </div>
           )}
-
           <div ref={fimRef} />
-        </div>
-
-        {/* Rodapé do chat */}
-        <div style={{ borderTop: `1px solid ${C.cinzaBorda}`, padding: "10px 12px", background: C.branco }}>
-          {/* Input de texto */}
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-            <input
-              ref={inputRef}
-              value={inputTexto}
-              onChange={e => setInputTexto(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleEnvioTexto()}
-              placeholder="Digite uma mensagem para o agente..."
-              style={{
-                flex: 1, padding: "10px 14px", borderRadius: 20,
-                border: `1.5px solid ${C.cinzaBorda}`, fontSize: 13,
-                background: C.cinzaFundo, color: C.texto,
-              }}
-            />
-            <button
-              onClick={handleEnvioTexto}
-              disabled={!inputTexto.trim()}
-              style={{
-                width: 38, height: 38, borderRadius: "50%", border: "none",
-                background: inputTexto.trim() ? C.azul : C.cinzaBorda,
-                color: C.branco, cursor: inputTexto.trim() ? "pointer" : "default",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0, transition: "background 0.2s",
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M22 2L11 13" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
-          <p style={{ fontSize: 10, color: C.cinzaLabel, textAlign: "center" }}>
-            Atendimento oficial CAIXA · Reforma Casa Brasil · Protocolo seguro
-          </p>
         </div>
       </div>
     </div>
