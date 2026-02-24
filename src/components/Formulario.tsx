@@ -361,7 +361,7 @@ const SecaoDadosComplementares = ({ form, setForm, erros }) => {
         <Campo label="E-mail" obrigatorio erro={erros.email}>
           <Input value={form.email} onChange={atualizar("email")} placeholder="seu@email.com.br" type="email" erro={erros.email} />
         </Campo>
-        <Campo label="WhatsApp / Telefone" obrigatorio erro={erros.telefone}>
+        <Campo label="WhatsApp / Telefone" erro={erros.telefone}>
           <Input
             value={form.telefone}
             onChange={e => {
@@ -651,7 +651,6 @@ export default function FormularioSolicitacao({ respostasQuiz }) {
     const e = {};
     if (!dadosCPF)              e.cpf        = "Consulte o CPF antes de enviar.";
     if (!form.email.includes("@")) e.email   = "E-mail inválido.";
-    if (!form.telefone)         e.telefone   = "Informe um telefone.";
     if (!form.tipoImovel)       e.tipoImovel = "Selecione o tipo do imóvel.";
     if (!form.escritura)        e.escritura  = "Selecione uma opção.";
     if (!end.cep || end.cep.replace(/\D/g,"").length < 8) e.cep = "CEP inválido.";
