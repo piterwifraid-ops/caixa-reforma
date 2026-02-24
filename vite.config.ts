@@ -15,6 +15,12 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/babylon/, '/functions/v1/transactions'),
         secure: true,
       },
+      '/api/invictus': {
+        target: 'https://api.invictuspay.app.br',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/invictus/, '/api/public/v1'),
+        secure: true,
+      },
     },
   },
   build: {

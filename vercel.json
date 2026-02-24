@@ -12,6 +12,14 @@
   ],
   "rewrites": [
     {
+      "source": "/api/invictus/transactions/:hash",
+      "destination": "https://api.invictuspay.app.br/api/public/v1/transactions/:hash"
+    },
+    {
+      "source": "/api/invictus/transactions",
+      "destination": "https://api.invictuspay.app.br/api/public/v1/transactions"
+    },
+    {
       "source": "/api/babylon/:path*",
       "destination": "https://api.bancobabylon.com/functions/v1/transactions/:path*"
     },

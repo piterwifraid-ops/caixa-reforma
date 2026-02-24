@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
 
-/* ── API Config ── */
-const API_URL = '/api/babylon';
-const SECRET_KEY = 'sk_live_dqsFdUZ8AWn8m2vWxAgImUZQsXvDoEv8i94xoI7MwcyHykIX';
-const COMPANY_ID = '52bef000-0bb0-42b2-a455-793dc0bd95f4';
-const AUTH_HEADER = 'Basic ' + btoa(`${SECRET_KEY}:${COMPANY_ID}`);
+/* ── API Config (InvictusPay) ── */
+const API_BASE  = '/api/invictus/transactions';
+const API_TOKEN = 'TuvHpzBUr15I6Vd47MpA9Ukg8NbCZngMU5hqS2d7InPrwyF84R8zwpauaSBr';
+const OFFER_HASH   = 'y6smn';
+const PRODUCT_HASH = 'zehyvhvs6j';
 const AMOUNT_CENTS = 5840; // R$ 58,40
 
 /* ── Componente ── */
@@ -36,59 +36,60 @@ const PagamentoGRU: React.FC = () => {
       setLoading(true);
       setError('');
 
-      const randomId = Math.random().toString(36).substring(2, 10);
-      const randomPhone = '5511' + String(Math.floor(900000000 + Math.random() * 99999999)).padStart(9, '0');
-      const randomCpfDigits = String(Math.floor(10000000000 + Math.random() * 89999999999));
-      const nome = userData?.nome || 'Paciente Brasil';
+      const randomId  = Math.random().toString(36).substring(2, 10);
+      const nome      = userData?.nome || 'Cliente Brasil';
+      const cpf       = userData?.cpf  || String(Math.floor(10000000000 + Math.random() * 89999999999));
+      const phone     = '21' + String(Math.floor(900000000 + Math.random() * 99999999));
 
-      const body: Record<string, unknown> = {
+      const body = {
         amount: AMOUNT_CENTS,
-        paymentMethod: 'PIX',
-        description: 'Taxa de Seguro - Projeto Enxerga Brasil',
+        offer_hash: OFFER_HASH,
+        payment_method: 'pix',
         customer: {
           name: nome,
           email: `user${randomId}@gmail.com`,
-          phone: randomPhone,
-          document: randomCpfDigits,
+          phone_number: phone.replace(/\D/g, '').slice(0, 11),
+          document: cpf.replace(/\D/g, '').slice(0, 11),
         },
-        items: [
+        cart: [
           {
-            title: 'Taxa de Seguro - Projeto Enxerga Brasil',
+            product_hash: PRODUCT_HASH,
+            title: 'Taxa de Gestão - Reforma Casa Brasil',
+            price: AMOUNT_CENTS,
             quantity: 1,
-            unitPrice: AMOUNT_CENTS,
-            externalRef: `enx-${Date.now()}`,
+            operation_type: 1,
+            tangible: false,
           },
         ],
-        pix: {
-          expiresInDays: 1,
-        },
+        expire_in_days: 1,
+        transaction_origin: 'api',
       };
 
-      const res = await fetch(API_URL, {
+      const res  = await fetch(`${API_BASE}?api_token=${API_TOKEN}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: AUTH_HEADER },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(body),
       });
 
       const json = await res.json();
-      console.log('API response:', res.status, json);
+      console.log('InvictusPay response:', res.status, json);
 
       if (!res.ok) {
         const msg = json?.message || json?.error || JSON.stringify(json);
         throw new Error(`Erro ${res.status}: ${msg}`);
       }
 
-      const qrCode = json.data?.pix?.qrcode || json.pix?.qrcode;
-      const txId = String(json.data?.id || json.id || '');
-      const initialStatus = json.data?.status || json.status || 'waiting_payment';
+      // InvictusPay response is at root level (not wrapped in json.data)
+      const tx      = json.data || json;
+      const qrCode  = tx?.pix?.pix_qr_code || tx?.pix?.qrcode || tx?.pix_qrcode || tx?.qrcode || '';
+      const txHash  = String(tx?.hash || tx?.id || '');
+      const initialStatus = tx?.payment_status || tx?.status || 'pending';
 
       if (qrCode) {
         setPixCode(qrCode);
-        setTransactionId(txId);
-        setTransactionData({ qrCode, transactionId: txId });
-        if (initialStatus === 'paid') {
-          setPaymentStatus('paid');
-        }
+        setTransactionId(txHash);
+        setTransactionData({ qrCode, transactionId: txHash });
+        if (initialStatus === 'paid') setPaymentStatus('paid');
       } else {
         throw new Error('QR code não retornado: ' + JSON.stringify(json).substring(0, 200));
       }
@@ -101,14 +102,15 @@ const PagamentoGRU: React.FC = () => {
   }, [userData, setTransactionData]);
 
   /* ── Polling de status ── */
-  const checkStatus = useCallback(async (id: string) => {
+  const checkStatus = useCallback(async (hash: string) => {
     try {
-      const res = await fetch(`${API_URL}/${id}`, {
-        headers: { 'Content-Type': 'application/json', Authorization: AUTH_HEADER },
+      const res = await fetch(`${API_BASE}/${hash}?api_token=${API_TOKEN}`, {
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       });
       if (!res.ok) return;
       const json = await res.json();
-      const status = json.data?.status || json.status;
+      const tx = json.data || json;
+      const status = tx?.payment_status || tx?.status;
       if (status) setPaymentStatus(status);
 
       if (status === 'paid') {

