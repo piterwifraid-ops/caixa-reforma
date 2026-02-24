@@ -232,13 +232,7 @@ export default function Quiz() {
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Scroll to quiz container immediately when component mounts
     rootRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
-    // Fix page scroll so the quiz remains in view
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    // Restore on unmount
-    return () => { document.body.style.overflow = previousOverflow; };
   }, []);
   const [etapa, setEtapa] = useState("quiz");   // quiz | bloqueio
   const [perguntaAtual, setPerguntaAtual] = useState(0);

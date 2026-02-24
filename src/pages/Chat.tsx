@@ -688,11 +688,11 @@ export default function ChatBot() {
               {fase === "upload" && <UploadFotos comodo={comodo!} tipo={tipo!} onEnviar={handleFotos} onCancelar={() => setFase("tipo")} />}
               {fase === "contrato" && <PainelContrato emp={emp} onAssinar={() => setFase("assinar")} />}
               {fase === "assinar" && <PainelAssinatura emp={emp} onConfirmar={handleAssinatura} />}
-              {/* TelaSucesso e PainelSeguro usam fasesVistas para persistir após a fase avançar */}
-              {fasesVistas.includes("concluido") && <TelaSucesso emp={emp} assinatura={assinatura} grupos={grupos} />}
-              {fasesVistas.includes("alerta_seguro") && <PainelSeguro onConfirmar={confirmarSeguro} />}
             </div>
           )}
+          {/* TelaSucesso e PainelSeguro são persistentes — ficam visíveis mesmo durante digitando */}
+          {fasesVistas.includes("concluido") && <TelaSucesso emp={emp} assinatura={assinatura} grupos={grupos} />}
+          {fasesVistas.includes("alerta_seguro") && <PainelSeguro onConfirmar={confirmarSeguro} />}
           <div ref={fimRef} />
         </div>
       </div>

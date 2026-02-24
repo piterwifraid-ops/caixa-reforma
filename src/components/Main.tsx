@@ -1,17 +1,31 @@
-﻿import React, { memo } from 'react';
+﻿import React, { memo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const VideoEmbed = memo(() => (
-  <div className="rcb-video-wrap">
-    <iframe
-      src="https://www.youtube-nocookie.com/embed/TBSE1smeMRU?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1"
-      title="Conheça o Programa Reforma Casa Brasil"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      referrerPolicy="strict-origin-when-cross-origin"
-      allowFullScreen
-    />
-  </div>
-));
+// Declare custom element for TypeScript
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'vturb-smartplayer': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & { id?: string };
+    }
+  }
+}
+
+const VideoEmbed = memo(() => {
+  useEffect(() => {
+    if (document.getElementById('vturb-script-699d1f5a')) return;
+    const s = document.createElement('script');
+    s.id = 'vturb-script-699d1f5a';
+    s.src = 'https://scripts.converteai.net/b777a140-3f7b-4820-be51-177af064f76e/players/699d1f5aba1b3680f7de6ff0/v4/player.js';
+    s.async = true;
+    document.head.appendChild(s);
+  }, []);
+
+  return (
+    <div className="rcb-video-wrap">
+      <vturb-smartplayer id="vid-699d1f5aba1b3680f7de6ff0" style={{ display: 'block', margin: '0 auto', width: '100%' }} />
+    </div>
+  );
+});
 
 const Main: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +44,6 @@ const Main: React.FC = () => {
     .rcb-step-number::before { content: ""; font-size: 12px; }
     .rcb-step p { color: #555; font-size: 14px; line-height: 1.6; }
     .rcb-video-wrap { display: flex; justify-content: center; padding: 10px 0; }
-    .rcb-video-wrap iframe { width: 100%; max-width: 700px; height: 394px; border: none; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
     .rcb-o-que-e p { font-size: 15px; line-height: 1.8; margin-bottom: 15px; }
     .rcb-o-que-e strong { color: #1351b4; }
     .rcb-cta-box { background: #f0f6ff; border-left: 4px solid #1351b4; padding: 16px 20px; margin: 20px 0; border-radius: 0 8px 8px 0; font-weight: 700; color: #1351b4; font-size: 15px; }
@@ -73,7 +86,6 @@ const Main: React.FC = () => {
     .rcb-btn-white:hover { background: #e8f0fe; }
     @media(max-width:700px){
       .rcb-steps { flex-direction: column; align-items: center; }
-      .rcb-video-wrap iframe { height: 220px; }
       .rcb-pricing-grid { grid-template-columns: 1fr; }
       .rcb-two-cols { grid-template-columns: 1fr; }
     }
